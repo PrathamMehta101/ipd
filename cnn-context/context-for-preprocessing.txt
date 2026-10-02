@@ -1,0 +1,26 @@
+Here is the structured preprocessing plan for the image dataset before the photos are fed into your computer vision model:
+
+### Phase 1: Ingestion and Orientation Correction
+
+* **Format Standardization:** Convert all incoming image files (whether PNG, JPEG, or HEIC format from mobile phones) into a uniform RGB format.
+* **EXIF Orientation Correction:** Automatically read and apply the image’s EXIF orientation metadata. Smartphones frequently save photos sideways or upside down with a rotation tag; correcting this ensures the car damage isn't analyzed at an unnatural angle.
+
+### Phase 2: Spatial Normalization (Resizing and Cropping)
+
+* **Uniform Dimensions:** Resize all images to a fixed input resolution required by your chosen deep learning backbone (e.g., $224 \times 224$ or $384 \times 384$ pixels for models like ResNet or EfficientNet).
+* **Aspect Ratio Handling:** Use center-cropping or padding (letterboxing) to prevent the vehicle shape from distorting or squishing when stretched to a square format.
+
+### Phase 3: Pixel Intensity Normalization
+
+* **Scaling:** Scale raw pixel values from an integer range of `[0, 255]` down to a floating-point range of `[0.0, 1.0]`.
+* **Backbone Standardization:** Normalize the pixel channels (Red, Green, Blue) using the standard ImageNet dataset mean and standard deviation values. This is essential when using transfer learning, as pre-trained models expect their input data to match the exact mathematical distribution they were originally trained on.
+
+### Phase 4: Data Augmentation (Training Subset Only)
+
+* **Geometric Transformations:** Apply random horizontal flips, slight rotations (e.g., $\pm 10$ degrees), and minor scaling shifts to simulate different camera angles and viewpoints of the accident.
+* **Photometric Adjustments:** Introduce subtle variations in brightness, contrast, and saturation to help the model remain robust against poorly lit garage photos, nighttime crash scenes, or glaring sunlight.
+
+### Phase 5: Fraud-Specific Forensic Preprocessing (Pre-Model Check)
+
+* **Perceptual Hashing (Duplicate Detection):** Before the image enters the neural network, run a hashing algorithm to generate a unique digital fingerprint of the photo. Cross-reference this hash against your historical database to instantly catch recycled or duplicate crash photos used across different claims.
+* **Metadata Extraction:** Extract hidden digital forensics data (e.g., creation timestamps, device make/model, and GPS coordinates) to flag temporal anomalies—such as an image taken six months *before* the claimed accident date.
