@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
+    "cytoscape": "^3.34.3",
+    "cytoscape-cose-bilkent": "^4.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

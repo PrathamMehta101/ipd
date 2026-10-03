@@ -8,8 +8,8 @@ export default function Header({ status }) {
           <i className="fa-solid fa-shield-halved"></i>
         </div>
         <div className="logo-text">
-          <span className="brand-title">AutoShield <span class="accent-text">AI</span></span>
-          <span className="brand-sub">CNN Car Insurance Fraud Analysis</span>
+          <span className="brand-title">AutoShield <span className="accent-text">AI</span></span>
+          <span className="brand-sub">Multi-Modal Vision, Tabular &amp; GNN Fraud Intelligence</span>
         </div>
       </div>
       
@@ -17,7 +17,7 @@ export default function Header({ status }) {
         <div className={`status-indicator ${status.online ? 'online' : 'loading'}`}></div>
         <span>
           {status.online 
-            ? `ResNet50 Active • ${status.device.toUpperCase()}`
+            ? `Tri-Modal AI Active (CNN + XGBoost + GNN) • ${status.device.toUpperCase()}`
             : 'Connecting to Backend Server...'}
         </span>
       </div>
