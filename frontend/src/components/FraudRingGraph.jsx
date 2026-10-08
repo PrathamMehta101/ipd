@@ -65,9 +65,10 @@ const TYPE_CONFIG = {
   },
 };
 
-export default function FraudRingGraph({ refreshKey }) {
-  const containerRef = useRef(null);
-  const cyRef        = useRef(null);
+export default function FraudRingGraph({ refreshKey, newestClaimId, onNewestDismissed }) {
+  const containerRef       = useRef(null);
+  const cyRef              = useRef(null);
+  const newestClaimIdRef   = useRef(newestClaimId);  // keep in sync for cy event handlers
 
   const [graphData, setGraphData]     = useState(null);
   const [selected, setSelected]       = useState(null);
@@ -82,11 +83,15 @@ export default function FraudRingGraph({ refreshKey }) {
     edges: 0,
     claims: 0,
     fraud: 0,
+    untouched: 0,
     garages: 0,
     claimants: 0,
     cities: 0,
     hubs: 0,
   });
+
+  // Keep ref in sync whenever prop changes so tap handlers always see latest value
+  useEffect(() => { newestClaimIdRef.current = newestClaimId; }, [newestClaimId]);
 
   const fetchGraph = useCallback(async () => {
     setLoading(true);
@@ -96,12 +101,13 @@ export default function FraudRingGraph({ refreshKey }) {
         const data = await res.json();
         setGraphData(data);
 
-        const claimNodes    = data.nodes.filter(n => n.type === 'claim');
-        const fraudClaims   = claimNodes.filter(n => n.predicted_class === 'Fraud');
-        const garageNodes   = data.nodes.filter(n => n.type === 'garage');
-        const claimantNodes = data.nodes.filter(n => n.type === 'claimant');
-        const cityNodes     = data.nodes.filter(n => n.type === 'city');
-        const ringHubs      = data.nodes.filter(
+        const claimNodes      = data.nodes.filter(n => n.type === 'claim');
+        const fraudClaims     = claimNodes.filter(n => n.predicted_class === 'Fraud');
+        const untouchedClaims = claimNodes.filter(n => n.is_untouched);
+        const garageNodes     = data.nodes.filter(n => n.type === 'garage');
+        const claimantNodes   = data.nodes.filter(n => n.type === 'claimant');
+        const cityNodes       = data.nodes.filter(n => n.type === 'city');
+        const ringHubs        = data.nodes.filter(
           n => (n.type === 'garage' || n.type === 'claimant') && (n.claim_count >= 2)
         );
 
@@ -110,6 +116,7 @@ export default function FraudRingGraph({ refreshKey }) {
           edges:     data.edges.length,
           claims:    claimNodes.length,
           fraud:     fraudClaims.length,
+          untouched: untouchedClaims.length,
           garages:   garageNodes.length,
           claimants: claimantNodes.length,
           cities:    cityNodes.length,
@@ -119,6 +126,22 @@ export default function FraudRingGraph({ refreshKey }) {
     } catch (_) {}
     setLoading(false);
   }, []);
+
+  const handleMarkReviewed = async (claimId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/claims/${claimId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analyst_verdict: 'REVIEWED' }),
+      });
+      if (res.ok) {
+        setSelected(prev => prev ? { ...prev, is_untouched: false, label: `#${claimId}` } : null);
+        await fetchGraph();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     fetchGraph();
@@ -154,7 +177,11 @@ export default function FraudRingGraph({ refreshKey }) {
     // 1. Filter claims by risk if set
     let visibleClaims = graphData.nodes.filter(n => n.type === 'claim');
     if (filterRisk !== 'ALL') {
-      visibleClaims = visibleClaims.filter(c => c.risk_level === filterRisk);
+      if (filterRisk === 'UNTOUCHED') {
+        visibleClaims = visibleClaims.filter(c => c.is_untouched);
+      } else {
+        visibleClaims = visibleClaims.filter(c => c.risk_level === filterRisk);
+      }
     }
     const visibleClaimIds = new Set(visibleClaims.map(c => c.id));
 
@@ -212,32 +239,56 @@ export default function FraudRingGraph({ refreshKey }) {
           selector: 'node',
           style: {
             'font-family':        'Outfit, sans-serif',
-            'font-weight':        '700',
+            'font-weight':        'bold',
             'text-valign':        'center',
             'text-halign':        'center',
             'text-outline-width': 1.8,
             'text-outline-color': 'rgba(0,0,0,0.85)',
             'color':              '#ffffff',
-            'cursor':             'pointer',
             'transition-property':'background-color, border-color, width, height, opacity',
             'transition-duration':'0.18s',
           },
         },
-        // Claim Node
+        // Base Claim Node
         {
           selector: 'node[type = "claim"]',
           style: {
             'shape':              'ellipse',
             'background-color':   (el) => RISK_COLOR[el.data('risk_level')] || '#6b7280',
             'border-width':       (el) => el.data('predicted_class') === 'Fraud' ? 3.5 : 1.5,
-            'border-color':       (el) => el.data('predicted_class') === 'Fraud' ? '#ffffff' : 'rgba(255,255,255,0.3)',
+            'border-color':       (el) => el.data('predicted_class') === 'Fraud' ? '#ffffff' : 'rgba(255,255,255,0.4)',
             'width':              (el) => Math.max(34, ((el.data('fraud_score') || 50) / 100) * 36 + 24),
             'height':             (el) => Math.max(34, ((el.data('fraud_score') || 50) / 100) * 36 + 24),
             'label':              'data(label)',
             'font-size':          '11px',
-            'shadow-blur':        (el) => el.data('predicted_class') === 'Fraud' ? 18 : 6,
-            'shadow-color':       (el) => RISK_GLOW[el.data('risk_level')] || 'transparent',
-            'shadow-opacity':     0.9,
+            'font-weight':        'bold',
+          },
+        },
+        // Untouched / Unanalyzed Claim Nodes — subtle cyan border only, no glow
+        {
+          selector: 'node[type = "claim"][?is_untouched]',
+          style: {
+            'border-width':   3,
+            'border-style':   'solid',
+            'border-color':   '#38bdf8',
+            'border-opacity': 1,
+            'font-size':      '11px',
+            'font-weight':    'bold',
+          },
+        },
+        // Newest submitted claim — precise single-node amber pulse
+        {
+          selector: 'node.newest-node',
+          style: {
+            'border-width':    6,
+            'border-style':    'solid',
+            'border-color':    '#fbbf24',
+            'border-opacity':  1,
+            'overlay-color':   '#f59e0b',
+            'overlay-padding': 12,
+            'overlay-opacity': 0.55,
+            'font-size':       '13px',
+            'font-weight':     'bold',
           },
         },
         // Garage Node (Anchor hub)
@@ -252,9 +303,7 @@ export default function FraudRingGraph({ refreshKey }) {
             'height':           (el) => Math.min(84, 56 + (el.data('claim_count') || 1) * 4),
             'label':            (el) => `🏪 ${el.data('label')}`,
             'font-size':        '11px',
-            'shadow-blur':      24,
-            'shadow-color':     'rgba(245, 158, 11, 0.9)',
-            'shadow-opacity':   0.9,
+            'font-weight':      'bold',
           },
         },
         // Claimant Node
@@ -269,9 +318,7 @@ export default function FraudRingGraph({ refreshKey }) {
             'height':           (el) => Math.min(74, 48 + (el.data('claim_count') || 1) * 6),
             'label':            (el) => `👤 ${el.data('label')}`,
             'font-size':        '10px',
-            'shadow-blur':      18,
-            'shadow-color':     'rgba(6, 182, 212, 0.8)',
-            'shadow-opacity':   0.85,
+            'font-weight':      'bold',
           },
         },
         // City Node
@@ -286,8 +333,7 @@ export default function FraudRingGraph({ refreshKey }) {
             'height':           34,
             'label':            (el) => `📍 ${el.data('label')}`,
             'font-size':        '10px',
-            'shadow-blur':      14,
-            'shadow-color':     'rgba(16, 185, 129, 0.6)',
+            'font-weight':      'bold',
           },
         },
         // State Node
@@ -302,8 +348,7 @@ export default function FraudRingGraph({ refreshKey }) {
             'height':           42,
             'label':            (el) => `🏛️ ${el.data('label')}`,
             'font-size':        '9px',
-            'shadow-blur':      12,
-            'shadow-color':     'rgba(99, 102, 241, 0.6)',
+            'font-weight':      'bold',
           },
         },
         // Incident Type Node
@@ -318,8 +363,7 @@ export default function FraudRingGraph({ refreshKey }) {
             'height':           30,
             'label':            (el) => `💥 ${el.data('label')}`,
             'font-size':        '9.5px',
-            'shadow-blur':      12,
-            'shadow-color':     'rgba(236, 72, 153, 0.6)',
+            'font-weight':      'bold',
           },
         },
         // Selected / Hover state
@@ -328,9 +372,9 @@ export default function FraudRingGraph({ refreshKey }) {
           style: {
             'border-width':   5,
             'border-color':   '#ffffff',
-            'shadow-blur':    36,
-            'shadow-color':   '#ffffff',
-            'shadow-opacity': 1,
+            'overlay-color':  '#ffffff',
+            'overlay-padding': 12,
+            'overlay-opacity': 0.45,
           },
         },
         // Base edge styling
@@ -450,10 +494,35 @@ export default function FraudRingGraph({ refreshKey }) {
       boxSelectionEnabled:false,
     });
 
-    // Tap node: select and illuminate neighborhood
+    // Apply newest-node class to the exact just-submitted claim
+    const applyNewestHighlight = () => {
+      cy.nodes().removeClass('newest-node');
+      if (newestClaimIdRef.current != null) {
+        const targetNodeId = `claim_${newestClaimIdRef.current}`;
+        const targetNode = cy.getElementById(targetNodeId);
+        if (targetNode && targetNode.length > 0) {
+          targetNode.addClass('newest-node');
+        }
+      }
+    };
+
+    cy.on('layoutstop', applyNewestHighlight);
+    // Also apply immediately in case layout already finished
+    applyNewestHighlight();
+
+    // Tap node: select, illuminate neighborhood, and dismiss newest highlight if it's the new claim
     cy.on('tap', 'node', (evt) => {
       const node = evt.target;
       setSelected(node.data());
+
+      // Dismiss the newest highlight when any claim is tapped
+      const nodeId = node.data('id');
+      const expectedId = `claim_${newestClaimIdRef.current}`;
+      if (nodeId === expectedId && node.hasClass('newest-node')) {
+        node.removeClass('newest-node');
+        newestClaimIdRef.current = null;
+        if (onNewestDismissed) onNewestDismissed();
+      }
 
       const neighborhood = node.neighborhood().add(node);
       cy.elements().removeClass('highlighted faded');
@@ -577,6 +646,29 @@ export default function FraudRingGraph({ refreshKey }) {
             </button>
           </div>
           {seedMsg && <div className="gp-seed-msg">{seedMsg}</div>}
+
+          {/* Newest claim indicator banner */}
+          {newestClaimId != null && (
+            <div className="newest-claim-banner" style={{ marginTop: '0.5rem' }}>
+              <span>⭐ New Claim #{newestClaimId} highlighted on graph</span>
+              <span style={{ opacity: 0.7, fontSize: '0.72rem' }}>— click the node to dismiss</span>
+              <button
+                className="ncb-dismiss"
+                type="button"
+                title="Dismiss highlight"
+                onClick={() => {
+                  // Also remove it from the graph directly
+                  if (cyRef.current) {
+                    cyRef.current.nodes().removeClass('newest-node');
+                  }
+                  newestClaimIdRef.current = null;
+                  if (onNewestDismissed) onNewestDismissed();
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

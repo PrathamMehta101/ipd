@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from torchvision import models, transforms
 from PIL import Image, ImageOps, ExifTags
 import imagehash
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -393,6 +393,34 @@ def predict_gnn_fraud_ring(claim_dict: dict) -> dict:
         prob = 1.0 / (1.0 + np.exp(-query_logit))
         fraud_ring_score = round(float(prob) * 100, 2)
 
+    matched_neighbors = []
+    if gid:
+        for gi in garage_matches[:8]:
+            row = ref_df.iloc[gi]
+            matched_neighbors.append({
+                "relation": f"Shared Repair Garage ({gid})",
+                "entity": gid,
+                "claimant_id": str(row.get('claimant_id', 'Unknown')),
+                "incident_city": str(row.get('incident_city', '')),
+                "incident_type": str(row.get('incident_type', '')),
+                "total_claim_amount": float(row.get('total_claim_amount', 0)),
+                "fraud_reported": bool(row.get('fraud_reported', 0) == 1),
+                "status": "FRAUD" if row.get('fraud_reported', 0) == 1 else "LEGITIMATE"
+            })
+    if cid:
+        for ci in claimant_matches[:8]:
+            row = ref_df.iloc[ci]
+            matched_neighbors.append({
+                "relation": f"Serial Claimant Record ({cid})",
+                "entity": cid,
+                "garage_id": str(row.get('garage_id', 'Unknown')),
+                "incident_city": str(row.get('incident_city', '')),
+                "incident_type": str(row.get('incident_type', '')),
+                "total_claim_amount": float(row.get('total_claim_amount', 0)),
+                "fraud_reported": bool(row.get('fraud_reported', 0) == 1),
+                "status": "FRAUD" if row.get('fraud_reported', 0) == 1 else "LEGITIMATE"
+            })
+
     # Ring context analysis
     fraud_neighbors = sum(1 for gi in garage_matches if ref_df.iloc[gi]['fraud_reported'] == 1)
     claimant_fraud_neighbors = sum(1 for ci in claimant_matches if ref_df.iloc[ci]['fraud_reported'] == 1)
@@ -427,8 +455,14 @@ def predict_gnn_fraud_ring(claim_dict: dict) -> dict:
         "ring_hub": gid if len(garage_matches) >= 2 else (cid if len(claimant_matches) >= 2 else None),
         "connected_claims": len(garage_matches) + len(claimant_matches),
         "fraud_neighbors": total_fraud_neighbors,
+        "garage_matches_count": len(garage_matches),
+        "garage_fraud_count": fraud_neighbors,
+        "claimant_matches_count": len(claimant_matches),
+        "claimant_fraud_count": claimant_fraud_neighbors,
+        "city_matches_count": len(city_matches),
         "network_flags": network_flags,
-        "recommendation_label": rec_label
+        "recommendation_label": rec_label,
+        "matched_neighbors": matched_neighbors[:12],
     }
 
 # ─── XGBoost Tabular Predict Endpoint ───────────────────────────────────────
@@ -587,6 +621,10 @@ def predict_tabular_fraud(payload: TabularClaimInput, db: Session = Depends(get_
         "predicted_class":      predicted,
         "fraud_score":          fraud_score,
         "risk_level":           risk_level,
+        "garage_id":            payload.garage_id,
+        "claimant_id":          payload.claimant_id,
+        "incident_city":        payload.incident_city,
+        "policy_state":         payload.policy_state,
         "xgboost": {
             "fraud_score":          fraud_score,
             "fraud_probability":    round(fraud_prob, 4),
@@ -673,6 +711,27 @@ def delete_claim(claim_id: int, db: Session = Depends(get_db)):
     return {"deleted": claim_id}
 
 
+class ClaimReviewInput(BaseModel):
+    analyst_verdict: Optional[str] = "REVIEWED"
+    notes: Optional[str] = None
+
+@app.post("/api/claims/{claim_id}/review")
+def review_claim(claim_id: int, payload: Optional[ClaimReviewInput] = None, db: Session = Depends(get_db)):
+    """Mark a claim as reviewed/analyzed by analyst so it is no longer untouched."""
+    entry = db.query(ClaimEntry).filter(ClaimEntry.id == claim_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found.")
+    entry.analyst_reviewed = True
+    if payload:
+        if payload.analyst_verdict:
+            entry.analyst_verdict = payload.analyst_verdict
+        if payload.notes:
+            entry.notes = payload.notes
+    db.commit()
+    db.refresh(entry)
+    return {"success": True, "claim": entry.to_dict()}
+
+
 # ─── Graph Nodes Endpoint (Heterogeneous Knowledge Graph) ────────────────────
 
 @app.get("/api/graph/nodes")
@@ -721,8 +780,11 @@ def graph_nodes(db: Session = Depends(get_db)):
         if r.incident_type: itype_counts[r.incident_type]  += 1
 
     # ── Build nodes and edges per claim ───────────────────────────────────────
-    for r in rows:
+    total_claims = len(rows)
+    for idx, r in enumerate(rows):
         claim_id = f"claim_{r.id}"
+        is_untouched = not bool(r.analyst_reviewed)
+        is_newest = (idx >= total_claims - 3)
 
         # Claim node
         if claim_id not in seen_nodes:
@@ -730,11 +792,14 @@ def graph_nodes(db: Session = Depends(get_db)):
             nodes.append({
                 "id":                   claim_id,
                 "type":                 "claim",
-                "label":                f"#{r.id}",
+                "label":                f"🆕 #{r.id}" if is_untouched else f"#{r.id}",
                 "claim_db_id":          r.id,
                 "fraud_score":          r.fraud_score,
                 "risk_level":           r.risk_level,
                 "predicted_class":      r.predicted_class,
+                "is_untouched":         is_untouched,
+                "analyst_reviewed":     bool(r.analyst_reviewed),
+                "is_newest":            is_newest,
                 "incident_type":        r.incident_type,
                 "incident_severity":    r.incident_severity,
                 "incident_city":        r.incident_city or "Unknown",
@@ -968,6 +1033,238 @@ async def analyze_claim_images(files: List[UploadFile] = File(...)):
         "recommendation_label": recommendation_label,
         "duplicate_warnings": duplicate_warnings,
         "image_results": results
+    }
+
+@app.post("/api/unified-analyze")
+async def unified_analyze(
+    files: List[UploadFile] = File(default=[]),
+    incident_severity: str = Form("Major Damage"),
+    total_claim_amount: float = Form(0.0),
+    insured_hobbies: str = Form("chess"),
+    vehicle_claim: float = Form(0.0),
+    incident_type: str = Form("Multi-vehicle Collision"),
+    umbrella_limit: float = Form(0.0),
+    policy_annual_premium: float = Form(0.0),
+    incident_city: Optional[str] = Form(None),
+    incident_date: Optional[str] = Form(None),
+    policy_state: Optional[str] = Form(None),
+    garage_id: Optional[str] = Form(None),
+    claimant_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Unified Single-Button Execution Endpoint:
+    1. Processes all uploaded accident images through ResNet50 (CNN).
+    2. Processes tabular claim attributes through XGBoost.
+    3. Passes network and topological signals through Graph Neural Network (GNN).
+    4. Computes Tri-Modal composite synthesis & persists record to database.
+    """
+    # ── 1. CNN ResNet50 Image Processing (if any images supplied) ──
+    image_results = []
+    hashes = []
+    duplicate_warnings = []
+    
+    if files:
+        for file in files:
+            if not file.filename:
+                continue
+            contents = await file.read()
+            if len(contents) == 0:
+                continue
+            analysis = preprocess_and_analyze(contents, file.filename)
+            phash = analysis["forensics"]["perceptual_hash"]
+            if phash in hashes:
+                duplicate_warnings.append(f"Duplicate photo detected: '{file.filename}' matches another photo in this submission!")
+            hashes.append(phash)
+            image_results.append(analysis)
+
+    if image_results:
+        scores = [r["prediction"]["fraud_score"] for r in image_results]
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+        max_score = max(scores) if scores else 0.0
+        duplicate_penalty = 25.0 if duplicate_warnings else 0.0
+        cnn_fraud_score = min(100.0, round((max_score * 0.70) + (avg_score * 0.30) + duplicate_penalty, 2))
+        cnn_data = {
+            "analyzed": True,
+            "total_images": len(image_results),
+            "fraud_score": cnn_fraud_score,
+            "duplicate_warnings": duplicate_warnings,
+            "image_results": image_results,
+            "summary": {
+                "total_images": len(image_results),
+                "highest_fraud_score": max_score,
+                "average_fraud_score": round(avg_score, 2),
+                "duplicate_warnings": duplicate_warnings,
+            }
+        }
+    else:
+        cnn_fraud_score = None
+        cnn_data = {
+            "analyzed": False,
+            "total_images": 0,
+            "fraud_score": None,
+            "duplicate_warnings": [],
+            "image_results": [],
+            "summary": None
+        }
+
+    # ── 2. XGBoost Tabular Anomaly Processing ──
+    if xgb_artifacts is None:
+        load_xgb_model()
+    if xgb_artifacts is None:
+        raise HTTPException(status_code=500, detail="XGBoost model is not loaded.")
+
+    model_xgb        = xgb_artifacts['model']
+    encoders         = xgb_artifacts['encoders']
+    scaler           = xgb_artifacts['scaler']
+    feature_cols     = xgb_artifacts['feature_cols']
+    categorical_cols = xgb_artifacts['categorical_cols']
+    numeric_cols     = xgb_artifacts['numeric_cols']
+
+    row = {
+        'incident_severity':    incident_severity,
+        'total_claim_amount':   total_claim_amount,
+        'insured_hobbies':      insured_hobbies,
+        'vehicle_claim':        vehicle_claim,
+        'incident_type':        incident_type,
+        'umbrella_limit':       umbrella_limit,
+        'policy_annual_premium':policy_annual_premium,
+    }
+    X = pd.DataFrame([row])
+    for col in categorical_cols:
+        le  = encoders[col]
+        val = X[col].iloc[0]
+        X[col] = le.transform(X[col]) if val in le.classes_ else le.transform([le.classes_[0]])
+
+    X[numeric_cols] = scaler.transform(X[numeric_cols])
+    proba          = model_xgb.predict_proba(X[feature_cols])[0]
+    fraud_prob     = float(proba[1])
+    non_fraud_prob = float(proba[0])
+    xgb_fraud_score= round(fraud_prob * 100, 2)
+    xgb_predicted  = "Fraud" if xgb_fraud_score >= 50.0 else "Non-Fraud"
+
+    if xgb_fraud_score < 30:
+        xgb_risk = "LOW"
+        xgb_rec  = "AUTOMATED_APPROVAL"
+        xgb_rec_label = "Low Risk – Fast-Track Automated Approval"
+    elif xgb_fraud_score < 65:
+        xgb_risk = "MEDIUM"
+        xgb_rec  = "MANUAL_REVIEW"
+        xgb_rec_label = "Moderate Risk – Assign to Adjuster for Manual Review"
+    elif xgb_fraud_score < 85:
+        xgb_risk = "HIGH"
+        xgb_rec  = "PRIORITY_AUDIT"
+        xgb_rec_label = "High Risk – Flag for SIU Investigation"
+    else:
+        xgb_risk = "CRITICAL"
+        xgb_rec  = "REJECT_AND_INVESTIGATE"
+        xgb_rec_label = "Critical Fraud Risk – Immediate Claim Hold & Audit"
+
+    # ── 3. GNN Graph Neural Network Message Passing ──
+    claim_meta = {
+        'incident_severity':    incident_severity,
+        'total_claim_amount':   total_claim_amount,
+        'insured_hobbies':      insured_hobbies,
+        'vehicle_claim':        vehicle_claim,
+        'incident_type':        incident_type,
+        'umbrella_limit':       umbrella_limit,
+        'policy_annual_premium':policy_annual_premium,
+        'incident_city':        incident_city,
+        'policy_state':         policy_state,
+        'garage_id':            garage_id,
+        'claimant_id':          claimant_id,
+    }
+    gnn_result = predict_gnn_fraud_ring(claim_meta)
+
+    # ── 4. Tri-Modal Composite Synthesis ──
+    if cnn_fraud_score is not None:
+        composite_score = round(0.35 * xgb_fraud_score + 0.45 * gnn_result["fraud_ring_score"] + 0.20 * cnn_fraud_score, 1)
+    else:
+        composite_score = round(0.45 * xgb_fraud_score + 0.55 * gnn_result["fraud_ring_score"], 1)
+
+    if composite_score >= 80 or gnn_result["fraud_ring_score"] >= 85:
+        comp_verdict = "CRITICAL_FRAUD"
+        comp_risk    = "CRITICAL"
+        comp_rec     = "🚨 Critical Threat: Multi-Modal & Fraud Ring Syndicate Detected. Halt All Payments & Refer to SIU Command."
+    elif composite_score >= 50 or xgb_fraud_score >= 60:
+        comp_verdict = "HIGH_RISK"
+        comp_risk    = "HIGH"
+        comp_rec     = "🔴 High Fraud Risk: Significant Anomaly Detected Across Models. Detailed Senior Adjuster Audit Required."
+    elif composite_score >= 30:
+        comp_verdict = "MODERATE_RISK"
+        comp_risk    = "MEDIUM"
+        comp_rec     = "🟡 Moderate Risk: Secondary Verifications Recommended for Invoices and Shop Details."
+    else:
+        comp_verdict = "LEGITIMATE"
+        comp_risk    = "LOW"
+        comp_rec     = "✅ Clean Claim: Cross-Validated Legitimate Across Visual, Tabular, and Network Modalities."
+
+    # ── 5. Persist to Database ──
+    entry = ClaimEntry(
+        incident_severity     = incident_severity,
+        incident_type         = incident_type,
+        insured_hobbies       = insured_hobbies,
+        total_claim_amount    = total_claim_amount,
+        vehicle_claim         = vehicle_claim,
+        umbrella_limit        = umbrella_limit,
+        policy_annual_premium = policy_annual_premium,
+        incident_city         = incident_city,
+        incident_date         = incident_date,
+        policy_state          = policy_state,
+        garage_id             = garage_id,
+        claimant_id           = claimant_id,
+        predicted_class       = xgb_predicted,
+        fraud_score           = xgb_fraud_score,
+        fraud_probability     = round(fraud_prob, 4),
+        non_fraud_probability = round(non_fraud_prob, 4),
+        risk_level            = xgb_risk,
+        recommendation        = xgb_rec,
+        recommendation_label  = comp_rec,
+        gnn_fraud_ring_score  = gnn_result["fraud_ring_score"],
+        gnn_ring_risk         = gnn_result["ring_risk_level"],
+        gnn_ring_hub          = gnn_result["ring_hub"],
+        cnn_fraud_score       = cnn_fraud_score,
+        composite_score       = composite_score,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+
+    return {
+        "id":                   entry.id,
+        "timestamp":            entry.created_at.isoformat() + "Z",
+        "predicted_class":      xgb_predicted,
+        "fraud_score":          xgb_fraud_score,
+        "risk_level":           xgb_risk,
+        "garage_id":            garage_id,
+        "claimant_id":          claimant_id,
+        "incident_city":        incident_city,
+        "policy_state":         policy_state,
+        "cnn":                  cnn_data,
+        "xgboost": {
+            "fraud_score":          xgb_fraud_score,
+            "fraud_probability":    round(fraud_prob, 4),
+            "non_fraud_probability":round(non_fraud_prob, 4),
+            "risk_level":           xgb_risk,
+            "predicted_class":      xgb_predicted,
+            "recommendation_label": xgb_rec_label,
+        },
+        "gnn":                  gnn_result,
+        "composite": {
+            "score":                composite_score,
+            "risk_level":           comp_risk,
+            "verdict":              comp_verdict,
+            "recommendation_label": comp_rec,
+        },
+        "recommendation":       xgb_rec,
+        "recommendation_label": comp_rec,
+        "model":                "Unified Tri-Modal (CNN + XGBoost + GNN)",
+        "overall_fraud_score":  cnn_fraud_score if cnn_fraud_score is not None else composite_score,
+        "overall_risk_level":   comp_risk,
+        "total_images_analyzed": len(image_results),
+        "duplicate_warnings":   duplicate_warnings,
+        "image_results":        image_results,
+        "summary":              cnn_data.get("summary"),
     }
 
 # Serve frontend static build ONLY (do NOT mount raw src/ — it swallows API routes in dev mode)

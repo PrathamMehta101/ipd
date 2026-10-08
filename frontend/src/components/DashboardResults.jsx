@@ -1,14 +1,20 @@
 import React from 'react';
 
 export default function DashboardResults({ results, files }) {
-  const { 
-    overall_fraud_score: score, 
-    overall_risk_level: riskLevel, 
-    recommendation_label: recLabel, 
-    duplicate_warnings: warnings, 
-    total_images_analyzed: totalCount,
-    image_results: imageResults 
-  } = results;
+  if (!results) return null;
+
+  const rawScore =
+    results.overall_fraud_score ??
+    results.cnn?.fraud_score ??
+    results.composite?.score ??
+    results.fraud_score ??
+    0;
+  const score = isFinite(Number(rawScore)) ? Number(rawScore) : 0;
+  const riskLevel = results.overall_risk_level ?? results.composite?.risk_level ?? results.risk_level ?? 'LOW';
+  const recLabel = results.recommendation_label ?? results.composite?.recommendation_label ?? 'Analysis completed.';
+  const warnings = results.duplicate_warnings ?? results.cnn?.duplicate_warnings ?? [];
+  const imageResults = results.image_results ?? results.cnn?.image_results ?? [];
+  const totalCount = results.total_images_analyzed ?? imageResults.length ?? 0;
 
   const circumference = 326.72;
   const strokeDashoffset = circumference - (score / 100) * circumference;
@@ -27,8 +33,12 @@ export default function DashboardResults({ results, files }) {
     recBg = 'var(--color-danger-bg)';
   }
 
-  const maxScore = imageResults ? Math.max(...imageResults.map(r => r.prediction.fraud_score)) : 0;
-  const totalTimeMs = imageResults ? imageResults.reduce((acc, curr) => acc + curr.processing_time_ms, 0) : 0;
+  const maxScore = imageResults && imageResults.length > 0
+    ? Math.max(...imageResults.map(r => { const v = Number(r.prediction?.fraud_score); return isFinite(v) ? v : 0; }))
+    : 0;
+  const totalTimeMs = imageResults && imageResults.length > 0
+    ? imageResults.reduce((acc, curr) => { const v = Number(curr.processing_time_ms); return acc + (isFinite(v) ? v : 0); }, 0)
+    : 0;
 
   return (
     <section className="results-section">

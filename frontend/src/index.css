@@ -2051,6 +2051,49 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* ------------------------------------------------------------------
    Full-page Graph Wrapper
 ------------------------------------------------------------------ */
+@keyframes newest-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  60%  { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.newest-claim-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  border-radius: 99px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(251,191,36,0.1));
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: default;
+  animation: newest-pulse 1.8s ease-out infinite;
+  white-space: nowrap;
+}
+
+.newest-claim-banner .ncb-dismiss {
+  background: rgba(251,191,36,0.2);
+  border: none;
+  color: #fbbf24;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+  padding: 0;
+}
+
+.newest-claim-banner .ncb-dismiss:hover {
+  background: rgba(251,191,36,0.45);
+}
+
 .graph-page-wrap {
   flex: 1;
   display: flex;

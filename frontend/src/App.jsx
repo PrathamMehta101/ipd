@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import UploadZone from './components/UploadZone';
+import UnifiedClaimStudio from './components/UnifiedClaimStudio';
 import PipelineVisualizer from './components/PipelineVisualizer';
+import GNNFraudRingResult from './components/GNNFraudRingResult';
+import TriModalFraudReport from './components/TriModalFraudReport';
 import DashboardResults from './components/DashboardResults';
 import ImageResultsGrid from './components/ImageResultsGrid';
-import XGBoostPredictor from './components/XGBoostPredictor';
 import FraudRingGraph from './components/FraudRingGraph';
 import ClaimsHistory from './components/ClaimsHistory';
-import TriModalFraudReport from './components/TriModalFraudReport';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
@@ -27,13 +27,16 @@ export default function App() {
     xgb_model_loaded: false,
     gnn_model_loaded: false,
   });
-  const [files, setFiles]                 = useState([]);
-  const [isProcessing, setIsProcessing]   = useState(false);
-  const [pipelineStep, setPipelineStep]   = useState(0);
-  const [pipelineStatusText, setPipelineStatusText] = useState('');
-  const [results, setResults]             = useState(null);
-  const [triModalReport, setTriModalReport] = useState(null);
-  const [historyKey, setHistoryKey]       = useState(0);
+  const [files, setFiles]                             = useState([]);
+  const [isProcessing, setIsProcessing]               = useState(false);
+  const [pipelineStep, setPipelineStep]               = useState(0);
+  const [pipelineStatusText, setPipelineStatusText]   = useState('');
+  const [results, setResults]                         = useState(null);
+  const [triModalReport, setTriModalReport]           = useState(null);
+  const [gnnOutput, setGnnOutput]                     = useState(null);
+  const [submittedClaim, setSubmittedClaim]           = useState(null);
+  const [historyKey, setHistoryKey]                   = useState(0);
+  const [newestClaimId, setNewestClaimId]             = useState(null);
 
   const handlePredictComplete = useCallback(() => setHistoryKey(k => k + 1), []);
 
@@ -91,62 +94,43 @@ export default function App() {
     }, 'image/jpeg');
   };
 
-  const handleAnalyze = async () => {
-    if (!files.length) return;
-    setResults(null);
+  const handleUnifiedStart = async () => {
     setIsProcessing(true);
+    setResults(null);
+    setTriModalReport(null);
+    setGnnOutput(null);
+
+    const steps = [
+      'Ingesting images & standardizing inputs...',
+      'Forensic EXIF & perceptual duplicate hashing...',
+      'ResNet50 Deep Convolutional Neural Network...',
+      'XGBoost Tabular Anomaly Feature Evaluation...',
+      'GNN Graph Neural Network Message Passing...',
+      'Multi-Modal Tri-Modal Composite Synthesis...'
+    ];
+
     for (let step = 1; step <= 6; step++) {
       setPipelineStep(step);
-      setPipelineStatusText(`Executing Step ${step} of 6...`);
-      await new Promise(r => setTimeout(r, 220));
-    }
-    setPipelineStatusText('Running ResNet50 Neural Network...');
-    const formData = new FormData();
-    files.forEach(f => formData.append('files', f));
-    try {
-      const res = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      const data = await res.json();
-      setResults(data);
-
-      const cnnScore = data.summary?.highest_fraud_score ?? data.image_results?.[0]?.prediction?.fraud_score ?? 75;
-      // If a tri-modal report is already present or to initialize one:
-      setTriModalReport(prev => {
-        if (!prev) {
-          return {
-            id: 'IMAGE-REF',
-            timestamp: new Date().toISOString(),
-            cnn: { fraud_score: cnnScore, analyzed: true },
-            xgboost: { fraud_score: 45, risk_level: 'MEDIUM', recommendation_label: 'Awaiting tabular submission' },
-            gnn: { fraud_ring_score: 20, ring_risk_level: 'LOW', network_flags: [] },
-            composite: {
-              score: Math.round(cnnScore * 0.5 + 30),
-              risk_level: cnnScore >= 60 ? 'HIGH' : 'MEDIUM',
-              verdict: cnnScore >= 60 ? 'HIGH_RISK' : 'MODERATE_RISK',
-              recommendation_label: 'Visual analysis complete. Submit claim form below for GNN ring detection.'
-            }
-          };
-        }
-        const updatedComp = Math.round(0.35 * (prev.xgboost?.fraud_score || 50) + 0.45 * (prev.gnn?.fraud_ring_score || 50) + 0.20 * cnnScore);
-        return {
-          ...prev,
-          cnn: { fraud_score: cnnScore, analyzed: true },
-          composite: {
-            ...prev.composite,
-            score: updatedComp,
-          }
-        };
-      });
-    } catch (err) {
-      alert(`Analysis Error: ${err.message}`);
-    } finally {
-      setIsProcessing(false);
+      setPipelineStatusText(steps[step - 1]);
+      await new Promise(r => setTimeout(r, 160));
     }
   };
 
-  const cnnScore = results
-    ? (results.summary?.highest_fraud_score ?? results.image_results?.[0]?.prediction?.fraud_score ?? null)
-    : null;
+  const handleUnifiedComplete = (data, form) => {
+    setIsProcessing(false);
+    handlePredictComplete(); // refresh history & graph
+    setResults(data);
+    setTriModalReport(data);
+    setGnnOutput(data.gnn);
+    setSubmittedClaim({ ...form, garage_id: form.garage_id || data.garage_id, claimant_id: form.claimant_id || data.claimant_id });
+    // Track the exact DB ID of this new claim so the graph can highlight it
+    if (data.id) setNewestClaimId(data.id);
+  };
+
+  const handleUnifiedError = (errMsg) => {
+    setIsProcessing(false);
+    alert(`Analysis Failed: ${errMsg}`);
+  };
 
   return (
     <div className="app-container">
@@ -173,19 +157,30 @@ export default function App() {
       {activeTab === 'analysis' && (
         <main className="main-content">
           <Hero />
-          <UploadZone files={files} setFiles={setFiles} onAnalyze={handleAnalyze} onSampleAdd={handleSampleAdd} />
-          
-          <XGBoostPredictor
-            cnnScore={cnnScore}
-            onPredict={(predData) => {
-              handlePredictComplete();
-              setTriModalReport(predData);
-            }}
+
+          {/* Unified Single-Action Studio: Images + Tabular + GNN */}
+          <UnifiedClaimStudio
+            files={files}
+            setFiles={setFiles}
+            onAnalyzeStart={handleUnifiedStart}
+            onAnalyzeComplete={handleUnifiedComplete}
+            onAnalyzeError={handleUnifiedError}
+            isProcessing={isProcessing}
+            onSampleAdd={handleSampleAdd}
           />
 
           {isProcessing && <PipelineVisualizer currentStep={pipelineStep} statusText={pipelineStatusText} />}
 
-          {/* ── Unified Tri-Modal Report (CNN + XGBoost + GNN) ── */}
+          {/* ── 1. PROMINENT GRAPH MODEL OUTPUT (GNN Fraud Ring Intelligence) ── */}
+          {gnnOutput && (
+            <GNNFraudRingResult
+              gnn={gnnOutput}
+              claimDetails={submittedClaim}
+              onSwitchToGraph={() => setActiveTab('graph')}
+            />
+          )}
+
+          {/* ── 2. Unified Tri-Modal Report (CNN + XGBoost + GNN) ── */}
           {triModalReport && (
             <TriModalFraudReport
               data={triModalReport}
@@ -193,7 +188,8 @@ export default function App() {
             />
           )}
 
-          {results && (
+          {/* ── 3. CNN Image Results (if photos were analyzed) ── */}
+          {results && results.image_results && results.image_results.length > 0 && (
             <>
               <DashboardResults results={results} files={files} />
               <ImageResultsGrid imageResults={results.image_results} files={files} />
@@ -205,7 +201,11 @@ export default function App() {
       {/* ─── Tab: Fraud Network Graph (full-page) ─── */}
       {activeTab === 'graph' && (
         <div className="graph-page-wrap">
-          <FraudRingGraph refreshKey={historyKey} />
+          <FraudRingGraph
+            refreshKey={historyKey}
+            newestClaimId={newestClaimId}
+            onNewestDismissed={() => setNewestClaimId(null)}
+          />
         </div>
       )}
 
