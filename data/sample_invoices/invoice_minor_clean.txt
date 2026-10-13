@@ -1,0 +1,27 @@
+LEGITIMATE MINOR DAMAGE ESTIMATE
+================================================================================
+Facility:   Columbus Trusted Auto Body
+Address:    890 Main Ave, Columbus OH 43215
+Date:       2015-03-12
+Claimant:   CLM-Z9 | Policy: POL-099-OH
+Vehicle:    2017 Toyota Corolla LE — VIN: 2T1BURHE9JC027490
+--------------------------------------------------------------------------------
+
+DAMAGE ASSESSMENT:
+Minor contact with parking bollard at ~5 mph.
+Only cosmetic paint scuff and minor plastic deformation to right front bumper.
+No frame, suspension, glass, or mechanical damage.
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover (partial R&I)       2.5     $65.00       $390.00     $552.50
+2.  Paint Blend Passenger Fender               1.5     $65.00       $120.00     $217.50
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL:                                                                        $770.00
+SHOP SUPPLIES:                                                                    $38.00
+-----------------------------------------------------------------------------------------
+TOTAL ESTIMATE:                                                                  $808.00
+
+INSPECTOR NOTE: Cosmetic repair only. Vehicle structurally sound and roadworthy.
+No further mechanical inspection required.

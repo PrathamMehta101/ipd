@@ -1,0 +1,27 @@
+PRELIMINARY BODY SHOP REPAIR ESTIMATE — INFLATED
+================================================================================
+Facility:   Premier Collision Center (G-001) — Certified Auto Body & Glass
+Address:    4801 Industrial Pkwy, Columbus OH 43228
+License #:  OH-BCBA-2019-00441
+Inspector:  J. Morales / RO# 2024-00938
+Date:       2024-03-22
+Claimant:   CLM-A1 | Policy: POL-001-OH
+Vehicle:    2018 Toyota Camry XSE — VIN: 4T1B11HK8JU148230
+--------------------------------------------------------------------------------
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover & Grille Assembly   8.5     $115.00      $780.00   $1,757.50
+2.  Hood Outer Shell Replacement OEM           6.2     $110.00    $1,250.00   $1,932.00
+3.  Right Front Headlamp Assembly LED          2.5     $110.00      $890.00   $1,165.00
+4.  Radiator Support & Condenser Overhaul      7.0     $115.00      $920.00   $1,725.00
+5.  Windshield Full Replacement AGC            3.8     $115.00      $610.00   $1,047.00
+6.  Structural Frame Pull & Laser Measuring   10.0     $125.00        $0.00   $1,250.00
+7.  Blend & Color Match Clearcoat             12.0     $110.00      $320.00   $1,640.00
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL LABOR & PARTS:                                                       $10,516.50
+HAZMAT DISPOSAL & SHOP SUPPLIES FEE:                                             $380.00
+ENVIRONMENTAL COMPLIANCE SURCHARGE:                                              $195.00
+-----------------------------------------------------------------------------------------
+TOTAL AUDITED REPAIR ESTIMATE:                                                $11,091.50

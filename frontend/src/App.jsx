@@ -1,223 +1,191 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
-import Hero from './components/Hero';
 import UnifiedClaimStudio from './components/UnifiedClaimStudio';
-import PipelineVisualizer from './components/PipelineVisualizer';
-import GNNFraudRingResult from './components/GNNFraudRingResult';
-import TriModalFraudReport from './components/TriModalFraudReport';
-import DashboardResults from './components/DashboardResults';
-import ImageResultsGrid from './components/ImageResultsGrid';
+import ResultsSlideshow from './components/ResultsSlideshow';
 import FraudRingGraph from './components/FraudRingGraph';
 import ClaimsHistory from './components/ClaimsHistory';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
-const TABS = [
-  { id: 'analysis',  label: '🔍 Claim Analysis',       desc: 'Tri-Modal AI (CNN + XGBoost + GNN)' },
-  { id: 'graph',     label: '🕸 Fraud Network Graph',  desc: 'Interactive ring detection'  },
-  { id: 'history',   label: '🗄 Claims Database',      desc: 'Full historical record'       },
+const STEPS = [
+  { label: 'Ingest', desc: 'Standardize inputs' },
+  { label: 'EXIF',   desc: 'Forensic hashing' },
+  { label: 'CNN',    desc: 'ResNet50 vision' },
+  { label: 'XGB',    desc: 'Tabular anomaly' },
+  { label: 'GNN',    desc: 'Ring detection' },
+  { label: 'Compose',desc: 'Multi-modal synthesis' },
 ];
 
+function PipelineBar({ step, text }) {
+  return (
+    <div className="proc-bar">
+      <div className="proc-spin" />
+      <div>
+        <div className="proc-txt">{text || 'Initialising pipeline…'}</div>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+          {STEPS.map((s, i) => (
+            <div
+              key={s.label}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: '0.2rem', flex: 1,
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: i < step ? 'var(--blue-900)' : i === step - 1 ? 'var(--blue-700)' : 'var(--bg-raised)',
+                border: `1px solid ${i < step ? 'var(--blue-700)' : 'var(--border-dim)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.55rem', color: i < step ? 'var(--blue-300)' : 'var(--txt-lo)',
+                transition: 'all 0.3s',
+              }}>
+                {i < step ? '✓' : i + 1}
+              </div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: i < step ? 'var(--blue-400)' : 'var(--txt-lo)' }}>
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('analysis');
-  const [backendStatus, setBackendStatus] = useState({
-    online: false,
-    device: 'cpu',
-    classes: [],
-    xgb_model_loaded: false,
-    gnn_model_loaded: false,
-  });
-  const [files, setFiles]                             = useState([]);
-  const [isProcessing, setIsProcessing]               = useState(false);
-  const [pipelineStep, setPipelineStep]               = useState(0);
-  const [pipelineStatusText, setPipelineStatusText]   = useState('');
-  const [results, setResults]                         = useState(null);
-  const [triModalReport, setTriModalReport]           = useState(null);
-  const [gnnOutput, setGnnOutput]                     = useState(null);
-  const [submittedClaim, setSubmittedClaim]           = useState(null);
-  const [historyKey, setHistoryKey]                   = useState(0);
-  const [newestClaimId, setNewestClaimId]             = useState(null);
+  const [tab, setTab]               = useState('analysis');
+  const [status, setStatus]         = useState({ online: false, device: 'cpu' });
+  const [files, setFiles]           = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [pipeStep, setPipeStep]     = useState(0);
+  const [pipeText, setPipeText]     = useState('');
+  const [results, setResults]       = useState(null);
+  const [histKey, setHistKey]       = useState(0);
+  const [newestId, setNewestId]     = useState(null);
 
-  const handlePredictComplete = useCallback(() => setHistoryKey(k => k + 1), []);
+  const refreshHistory = useCallback(() => setHistKey(k => k + 1), []);
 
+  /* ── health poll ── */
   useEffect(() => {
-    const checkHealth = async () => {
+    const check = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/health`);
         if (res.ok) {
-          const data = await res.json();
-          setBackendStatus({
-            online: true,
-            device: data.device,
-            classes: data.classes,
-            xgb_model_loaded: data.xgb_model_loaded,
-            gnn_model_loaded: data.gnn_model_loaded,
-          });
+          const d = await res.json();
+          setStatus({ online: true, device: d.device, xgb: d.xgb_model_loaded, gnn: d.gnn_model_loaded });
         }
-      } catch {
-        setBackendStatus({ online: false, device: 'cpu', classes: [] });
-      }
+      } catch { setStatus({ online: false, device: 'cpu' }); }
     };
-    checkHealth();
-    const iv = setInterval(checkHealth, 4000);
+    check();
+    const iv = setInterval(check, 5000);
     return () => clearInterval(iv);
   }, []);
 
-  const handleSampleAdd = (isFraud) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 400; canvas.height = 300;
-    const ctx = canvas.getContext('2d');
-    if (isFraud) {
-      const grad = ctx.createLinearGradient(0,0,400,300);
-      grad.addColorStop(0,'#312e81'); grad.addColorStop(0.5,'#4c0519'); grad.addColorStop(1,'#0f172a');
-      ctx.fillStyle = grad; ctx.fillRect(0,0,400,300);
-      ctx.fillStyle='#94a3b8'; ctx.fillRect(80,100,240,120);
-      ctx.fillStyle='#ef4444'; ctx.font='bold 16px Outfit,sans-serif';
-      ctx.fillText('SAMPLE CLAIM #9041 (FRAUD DEMO)',30,45);
-      ctx.font='12px JetBrains Mono,sans-serif';
-      ctx.fillText('Recycled Vehicle Photo / Staged Claim',30,70);
-    } else {
-      const grad = ctx.createLinearGradient(0,0,400,300);
-      grad.addColorStop(0,'#064e3b'); grad.addColorStop(0.5,'#0f172a'); grad.addColorStop(1,'#1e293b');
-      ctx.fillStyle = grad; ctx.fillRect(0,0,400,300);
-      ctx.fillStyle='#cbd5e1'; ctx.fillRect(60,110,280,110);
-      ctx.fillStyle='#f59e0b'; ctx.fillRect(240,130,80,70);
-      ctx.fillStyle='#34d399'; ctx.font='bold 16px Outfit,sans-serif';
-      ctx.fillText('SAMPLE CLAIM #1029 (AUTHENTIC ACCIDENT)',30,45);
-      ctx.font='12px JetBrains Mono,sans-serif';
-      ctx.fillText('Real Frontal Impact Damage Photo',30,70);
-    }
-    canvas.toBlob((blob) => {
-      const filename = isFraud ? 'sample_fraud_claim_photo.jpg' : 'sample_authentic_accident.jpg';
-      const file = new File([blob], filename, { type: 'image/jpeg' });
-      setFiles(prev => prev.some(sf => sf.name===file.name && sf.size===file.size) ? prev : [...prev, file]);
-    }, 'image/jpeg');
-  };
-
-  const handleUnifiedStart = async () => {
-    setIsProcessing(true);
+  const handleStart = async () => {
+    setProcessing(true);
     setResults(null);
-    setTriModalReport(null);
-    setGnnOutput(null);
-
-    const steps = [
-      'Ingesting images & standardizing inputs...',
-      'Forensic EXIF & perceptual duplicate hashing...',
-      'ResNet50 Deep Convolutional Neural Network...',
-      'XGBoost Tabular Anomaly Feature Evaluation...',
-      'GNN Graph Neural Network Message Passing...',
-      'Multi-Modal Tri-Modal Composite Synthesis...'
+    const texts = [
+      'Ingesting images & standardizing inputs…',
+      'Forensic EXIF & perceptual hash analysis…',
+      'ResNet50 deep convolutional inference…',
+      'XGBoost tabular anomaly evaluation…',
+      'GNN fraud ring message passing…',
+      'Multi-modal composite synthesis…',
     ];
-
-    for (let step = 1; step <= 6; step++) {
-      setPipelineStep(step);
-      setPipelineStatusText(steps[step - 1]);
-      await new Promise(r => setTimeout(r, 160));
+    for (let i = 1; i <= 6; i++) {
+      setPipeStep(i);
+      setPipeText(texts[i - 1]);
+      await new Promise(r => setTimeout(r, 180));
     }
   };
 
-  const handleUnifiedComplete = (data, form) => {
-    setIsProcessing(false);
-    handlePredictComplete(); // refresh history & graph
-    setResults(data);
-    setTriModalReport(data);
-    setGnnOutput(data.gnn);
-    setSubmittedClaim({ ...form, garage_id: form.garage_id || data.garage_id, claimant_id: form.claimant_id || data.claimant_id });
-    // Track the exact DB ID of this new claim so the graph can highlight it
-    if (data.id) setNewestClaimId(data.id);
+  const handleComplete = (data, form) => {
+    setProcessing(false);
+    refreshHistory();
+    setResults({ ...data, files });
+    if (data.id) setNewestId(data.id);
   };
 
-  const handleUnifiedError = (errMsg) => {
-    setIsProcessing(false);
-    alert(`Analysis Failed: ${errMsg}`);
+  const handleError = msg => {
+    setProcessing(false);
+    alert(`Analysis failed: ${msg}`);
+  };
+
+  /* sample image generator using real photographic assets */
+  const handleSampleAdd = async isFraud => {
+    try {
+      const url = isFraud ? '/src/assets/sample_crash.jpg' : '/src/assets/sample_scratch.jpg';
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const fname = isFraud ? 'incident_collision_damage.jpg' : 'minor_bollard_scuff.jpg';
+      const file = new File([blob], fname, { type: 'image/jpeg' });
+      setFiles(p => p.some(f => f.name === file.name) ? p : [...p, file]);
+    } catch {
+      // fallback to basic file if fetch fails
+      const fname = isFraud ? 'incident_collision_damage.jpg' : 'minor_bollard_scuff.jpg';
+      const canvas = document.createElement('canvas');
+      canvas.width = 400; canvas.height = 300;
+      canvas.toBlob(blob => {
+        const file = new File([blob], fname, { type: 'image/jpeg' });
+        setFiles(p => p.some(f => f.name === file.name) ? p : [...p, file]);
+      }, 'image/jpeg');
+    }
   };
 
   return (
-    <div className="app-container">
-      <Header status={backendStatus} />
+    <div className="app-shell">
+      <Header status={status} activeTab={tab} setActiveTab={setTab} />
 
-      {/* ─── Tab Navigation ─── */}
-      <nav className="tab-nav" role="tablist">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            id={`tab-${t.id}`}
-            role="tab"
-            aria-selected={activeTab === t.id}
-            className={`tab-btn ${activeTab === t.id ? 'tab-btn--active' : ''}`}
-            onClick={() => setActiveTab(t.id)}
-          >
-            <span className="tab-label">{t.label}</span>
-            <span className="tab-desc">{t.desc}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* ─── Tab: Claim Analysis ─── */}
-      {activeTab === 'analysis' && (
-        <main className="main-content">
-          <Hero />
-
-          {/* Unified Single-Action Studio: Images + Tabular + GNN */}
+      {/* ── Analysis page ── */}
+      {tab === 'analysis' && (
+        <main className="page">
           <UnifiedClaimStudio
-            files={files}
-            setFiles={setFiles}
-            onAnalyzeStart={handleUnifiedStart}
-            onAnalyzeComplete={handleUnifiedComplete}
-            onAnalyzeError={handleUnifiedError}
-            isProcessing={isProcessing}
+            files={files} setFiles={setFiles}
+            onAnalyzeStart={handleStart}
+            onAnalyzeComplete={handleComplete}
+            onAnalyzeError={handleError}
+            isProcessing={processing}
             onSampleAdd={handleSampleAdd}
           />
 
-          {isProcessing && <PipelineVisualizer currentStep={pipelineStep} statusText={pipelineStatusText} />}
-
-          {/* ── 1. PROMINENT GRAPH MODEL OUTPUT (GNN Fraud Ring Intelligence) ── */}
-          {gnnOutput && (
-            <GNNFraudRingResult
-              gnn={gnnOutput}
-              claimDetails={submittedClaim}
-              onSwitchToGraph={() => setActiveTab('graph')}
-            />
+          {processing && (
+            <PipelineBar step={pipeStep} text={pipeText} />
           )}
 
-          {/* ── 2. Unified Tri-Modal Report (CNN + XGBoost + GNN) ── */}
-          {triModalReport && (
-            <TriModalFraudReport
-              data={triModalReport}
-              onSwitchToGraph={() => setActiveTab('graph')}
-            />
-          )}
-
-          {/* ── 3. CNN Image Results (if photos were analyzed) ── */}
-          {results && results.image_results && results.image_results.length > 0 && (
-            <>
-              <DashboardResults results={results} files={files} />
-              <ImageResultsGrid imageResults={results.image_results} files={files} />
-            </>
+          {results && !processing && (
+            <ResultsSlideshow data={results} files={files} />
           )}
         </main>
       )}
 
-      {/* ─── Tab: Fraud Network Graph (full-page) ─── */}
-      {activeTab === 'graph' && (
+      {/* ── Network Graph page ── */}
+      {tab === 'graph' && (
         <div className="graph-page-wrap">
           <FraudRingGraph
-            refreshKey={historyKey}
-            newestClaimId={newestClaimId}
-            onNewestDismissed={() => setNewestClaimId(null)}
+            refreshKey={histKey}
+            newestClaimId={newestId}
+            onNewestDismissed={() => setNewestId(null)}
           />
         </div>
       )}
 
-      {/* ─── Tab: Claims Database ─── */}
-      {activeTab === 'history' && (
-        <main className="main-content">
-          <ClaimsHistory key={historyKey} />
+      {/* ── Case Database page ── */}
+      {tab === 'history' && (
+        <main className="page-wide">
+          <div className="ph">
+            <span className="ph-label">Archive</span>
+            <h1 className="ph-title">Case <em>Database</em></h1>
+            <p className="ph-sub">All previously analyzed claims, sorted by submission time.</p>
+          </div>
+          <ClaimsHistory key={histKey} />
         </main>
       )}
 
       <footer className="footer">
-        <p>AutoShield AI Fraud Detection System • Powered by PyTorch ResNet50, XGBoost &amp; Graph Neural Network (GNN)</p>
+        <span>AutoShield AI — ResNet50 · XGBoost · GNN · FNOL NLP</span>
+        <span style={{ color: 'var(--blue-900)' }}>
+          {new Date().getFullYear()}
+        </span>
       </footer>
     </div>
   );

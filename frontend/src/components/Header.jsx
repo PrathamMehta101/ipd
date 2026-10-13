@@ -1,25 +1,40 @@
 import React from 'react';
 
-export default function Header({ status }) {
+export default function Header({ status, activeTab, setActiveTab }) {
+  const links = [
+    { id: 'analysis', label: 'Claim Analysis' },
+    { id: 'graph',    label: 'Fraud Network' },
+    { id: 'history',  label: 'Case Database' },
+  ];
+
   return (
-    <header className="navbar">
-      <div className="logo">
-        <div className="logo-icon">
-          <i className="fa-solid fa-shield-halved"></i>
+    <header className="nav">
+      <div className="nav-brand">
+        <div className="nav-icon">
+          <i className="fa-solid fa-shield-halved" />
         </div>
-        <div className="logo-text">
-          <span className="brand-title">AutoShield <span className="accent-text">AI</span></span>
-          <span className="brand-sub">Multi-Modal Vision, Tabular &amp; GNN Fraud Intelligence</span>
-        </div>
-      </div>
-      
-      <div className="system-status">
-        <div className={`status-indicator ${status.online ? 'online' : 'loading'}`}></div>
-        <span>
-          {status.online 
-            ? `Tri-Modal AI Active (CNN + XGBoost + GNN) • ${status.device.toUpperCase()}`
-            : 'Connecting to Backend Server...'}
+        <span className="nav-title">
+          AutoShield <em>AI</em>
         </span>
+      </div>
+
+      <nav className="nav-links">
+        {links.map(l => (
+          <button
+            key={l.id}
+            className={`nav-link${activeTab === l.id ? ' active' : ''}`}
+            onClick={() => setActiveTab(l.id)}
+          >
+            {l.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="nav-status">
+        <div className={`status-dot${status.online ? ' live' : ''}`} />
+        {status.online
+          ? `${status.device.toUpperCase()} · AI Ready`
+          : 'Connecting…'}
       </div>
     </header>
   );

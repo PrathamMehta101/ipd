@@ -1,0 +1,37 @@
+TOTAL LOSS SUPPLEMENTAL ESTIMATE — HIGH FRAUD RISK
+================================================================================
+Facility:   Northern Star Body Works (G-005) — Comprehensive Collision
+Address:    775 Route 9 North, New York NY 10001
+Date:       2015-03-05
+Claimant:   CLM-C1 | Policy: POL-005-NY | SERIAL CLAIMANT (5th claim in 36 months)
+Vehicle:    2019 SUV — Single Vehicle Collision (Self-reported late night)
+--------------------------------------------------------------------------------
+DECLARED: Total Loss — Full Structural Failure Across All Panels
+--------------------------------------------------------------------------------
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover & Grille           10.0     $130.00    $1,120.00   $2,420.00
+2.  Hood Full Assembly OEM                     8.0     $130.00    $1,650.00   $2,690.00
+3.  Radiator Support Full Replacement          9.0     $130.00    $1,280.00   $2,450.00
+4.  Right Front Headlamp LED Premium           3.5     $130.00    $1,100.00   $1,555.00
+5.  Left Front Headlamp LED Premium            3.5     $130.00    $1,100.00   $1,555.00
+6.  Quarter Panel Driver Side Full Replace    12.0     $140.00    $2,200.00   $3,880.00
+7.  Quarter Panel Passenger Side Full         12.0     $140.00    $2,200.00   $3,880.00
+8.  Windshield & All Glass Full Replacement    6.0     $130.00    $1,800.00   $2,580.00
+9.  Structural Frame Complete Replacement     20.0     $145.00    $5,500.00   $8,400.00
+10. Teardown Complete Overhaul                 8.0     $135.00        $0.00   $1,080.00
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL LABOR & PARTS:                                                       $30,490.00
+STORAGE FEES (21 days):                                                          $630.00
+TOTAL LOSS ADMIN:                                                                $950.00
+DISPOSAL & RECYCLING:                                                            $480.00
+-----------------------------------------------------------------------------------------
+GRAND TOTAL:                                                                  $32,550.00
+
+RED FLAGS:
+  - Claimant CLM-C1 has 5 prior claims across 4 states (IL, NY, OH, TX)
+  - Damage inconsistent with self-reported low-speed night collision
+  - Garage G-005 flagged in prior SIU investigation (2022)
+  - No police report filed; incident witnesses: none

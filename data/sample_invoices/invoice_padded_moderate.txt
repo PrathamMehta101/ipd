@@ -1,0 +1,21 @@
+REPAIR ESTIMATE — MODERATE INFLATION
+================================================================================
+Facility:   Quick-Fix Auto Body (G-007) — General Auto Repair
+Address:    1122 Elm Street, Cleveland OH 44113
+Date:       2024-04-10
+Claimant:   CLM-B3 | Policy: POL-007-OH
+Vehicle:    2021 Honda CR-V EX — VIN: 2HKRW2H53MH123456
+--------------------------------------------------------------------------------
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover                     4.5     $95.00       $510.00   $1,337.50
+2.  Hood Panel Replacement OEM                 4.0     $90.00       $720.00   $1,080.00
+3.  Right Fender Replacement                   3.2     $95.00       $380.00   $684.00
+4.  Headlamp Passenger Side                    1.5     $90.00       $420.00   $555.00
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL LABOR & PARTS:                                                        $3,656.50
+SHOP SUPPLIES:                                                                   $125.00
+-----------------------------------------------------------------------------------------
+TOTAL ESTIMATE:                                                                $3,781.50

@@ -1,0 +1,28 @@
+REPAIR ESTIMATE — PHANTOM PARTS DETECTED
+================================================================================
+Facility:   Metro Collision Express (G-003) — Multi-Service Center
+Address:    3300 Industrial Blvd, Detroit MI 48210
+Date:       2024-02-28
+Claimant:   CLM-D4 | Policy: POL-003-MI
+Vehicle:    2019 Dodge Charger R/T — VIN: 2C3CDXCT3KH123789
+INCIDENT:   Single-vehicle collision, front impact at intersection
+--------------------------------------------------------------------------------
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover & Grille            5.0     $100.00      $620.00   $1,120.00
+2.  Hood Replacement OEM                       3.5     $100.00      $750.00   $1,100.00
+3.  Headlamp Driver Side LED Assembly          1.2     $100.00      $450.00     $570.00
+4.  Rear Quarter Panel Glass Seal              3.5     $115.00      $480.00     $882.50
+5.  Airbag Module Driver Replacement          12.0     $130.00    $1,650.00   $3,210.00
+6.  Suspension Arm Rear Left (No impact noted) 6.0     $120.00      $890.00   $1,610.00
+7.  Radiator & Coolant System Full Flush       3.2     $105.00      $320.00     $656.00
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL LABOR & PARTS:                                                        $9,148.50
+DISPOSAL & HAZMAT:                                                               $240.00
+TOTAL ESTIMATE:                                                                $9,388.50
+
+*** AUDIT FLAG: Items 4, 5, 6 are inconsistent with a front-impact-only collision.
+    Airbag module replacement requires documented deployment evidence.
+    Rear suspension unrelated to stated damage zone — suspected phantom billing.

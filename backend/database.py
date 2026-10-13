@@ -63,12 +63,33 @@ class ClaimEntry(Base):
     recommendation_label  = Column(Text,         nullable=False)
     model_name            = Column(String(64),  nullable=False, default="XGBoost (Tabular)")
 
-    # GNN & Multimodal Tri-Modal fields
+    # Multimodal Tri-Modal fields
     gnn_fraud_ring_score  = Column(Float,        nullable=True, default=0.0)
     gnn_ring_risk         = Column(String(32),   nullable=True)
     gnn_ring_hub          = Column(String(64),   nullable=True)
     cnn_fraud_score       = Column(Float,        nullable=True)
     composite_score       = Column(Float,        nullable=True)
+
+    # Explainable AI (XAI) Layer 1 fields
+    shap_summary          = Column(Text,         nullable=True)
+    gradcam_focus         = Column(String(128),  nullable=True)
+    xai_insights          = Column(Text,         nullable=True)
+
+    # Layer 4: Multimodal NLP & FNOL Analysis fields
+    incident_description  = Column(Text,         nullable=True)
+    fnol_score            = Column(Float,        nullable=True)
+    fnol_linguistic_flags = Column(Text,         nullable=True)
+    contradiction_flags   = Column(Text,         nullable=True)
+
+    # Layer 7: SIU Operational Workflow & Immutable Chain of Custody
+    evidence_sha256             = Column(String(64),   nullable=True)
+    photo_hashes_sha256         = Column(Text,         nullable=True)
+    chain_of_custody_timestamp  = Column(String(64),   nullable=True)
+    siu_brief                   = Column(Text,         nullable=True)
+
+    # Layer 2: Deep Image & Document Tampering Forensics
+    tampering_flags             = Column(Text,         nullable=True)
+    bill_padding_summary        = Column(Text,         nullable=True)
 
     # Review fields
     analyst_reviewed      = Column(Boolean, default=False)
@@ -83,36 +104,49 @@ class ClaimEntry(Base):
 
     def to_dict(self):
         return {
-            "id":                    self.id,
-            "created_at":            self.created_at.isoformat() + "Z" if self.created_at else None,
-            "incident_severity":     self.incident_severity,
-            "incident_type":         self.incident_type,
-            "insured_hobbies":       self.insured_hobbies,
-            "total_claim_amount":    self.total_claim_amount,
-            "vehicle_claim":         self.vehicle_claim,
-            "umbrella_limit":        self.umbrella_limit,
-            "policy_annual_premium": self.policy_annual_premium,
-            "incident_city":         self.incident_city,
-            "incident_date":         self.incident_date,
-            "policy_state":          self.policy_state,
-            "garage_id":             self.garage_id,
-            "claimant_id":           self.claimant_id,
-            "predicted_class":       self.predicted_class,
-            "fraud_score":           self.fraud_score,
-            "fraud_probability":     self.fraud_probability,
-            "non_fraud_probability": self.non_fraud_probability,
-            "risk_level":            self.risk_level,
-            "recommendation":        self.recommendation,
-            "recommendation_label":  self.recommendation_label,
-            "model_name":            self.model_name,
-            "gnn_fraud_ring_score":  self.gnn_fraud_ring_score or 0.0,
-            "gnn_ring_risk":         self.gnn_ring_risk,
-            "gnn_ring_hub":          self.gnn_ring_hub,
-            "cnn_fraud_score":       self.cnn_fraud_score,
-            "composite_score":       self.composite_score,
-            "analyst_reviewed":      self.analyst_reviewed,
-            "analyst_verdict":       self.analyst_verdict,
-            "notes":                 self.notes,
+            "id":                         self.id,
+            "created_at":                 self.created_at.isoformat() + "Z" if self.created_at else None,
+            "incident_severity":          self.incident_severity,
+            "incident_type":              self.incident_type,
+            "insured_hobbies":            self.insured_hobbies,
+            "total_claim_amount":         self.total_claim_amount,
+            "vehicle_claim":              self.vehicle_claim,
+            "umbrella_limit":             self.umbrella_limit,
+            "policy_annual_premium":      self.policy_annual_premium,
+            "incident_city":              self.incident_city,
+            "incident_date":              self.incident_date,
+            "policy_state":               self.policy_state,
+            "garage_id":                  self.garage_id,
+            "claimant_id":                self.claimant_id,
+            "predicted_class":            self.predicted_class,
+            "fraud_score":                self.fraud_score,
+            "fraud_probability":          self.fraud_probability,
+            "non_fraud_probability":      self.non_fraud_probability,
+            "risk_level":                 self.risk_level,
+            "recommendation":             self.recommendation,
+            "recommendation_label":       self.recommendation_label,
+            "model_name":                 self.model_name,
+            "gnn_fraud_ring_score":       self.gnn_fraud_ring_score or 0.0,
+            "gnn_ring_risk":              self.gnn_ring_risk,
+            "gnn_ring_hub":               self.gnn_ring_hub,
+            "cnn_fraud_score":            self.cnn_fraud_score,
+            "composite_score":            self.composite_score,
+            "shap_summary":               self.shap_summary,
+            "gradcam_focus":              self.gradcam_focus,
+            "xai_insights":               self.xai_insights,
+            "incident_description":       self.incident_description,
+            "fnol_score":                 self.fnol_score,
+            "fnol_linguistic_flags":      self.fnol_linguistic_flags,
+            "contradiction_flags":        self.contradiction_flags,
+            "evidence_sha256":            self.evidence_sha256,
+            "photo_hashes_sha256":        self.photo_hashes_sha256,
+            "chain_of_custody_timestamp": self.chain_of_custody_timestamp,
+            "siu_brief":                  self.siu_brief,
+            "tampering_flags":            self.tampering_flags,
+            "bill_padding_summary":       self.bill_padding_summary,
+            "analyst_reviewed":           self.analyst_reviewed,
+            "analyst_verdict":            self.analyst_verdict,
+            "notes":                      self.notes,
         }
 
 
@@ -122,16 +156,29 @@ def init_db():
 
     # Inline migration: add new columns if they don't exist yet
     new_cols = [
-        ("incident_city",         "VARCHAR(128)"),
-        ("incident_date",         "VARCHAR(32)"),
-        ("policy_state",          "VARCHAR(8)"),
-        ("garage_id",             "VARCHAR(64)"),
-        ("claimant_id",           "VARCHAR(64)"),
-        ("gnn_fraud_ring_score",  "FLOAT"),
-        ("gnn_ring_risk",         "VARCHAR(32)"),
-        ("gnn_ring_hub",          "VARCHAR(64)"),
-        ("cnn_fraud_score",       "FLOAT"),
-        ("composite_score",       "FLOAT"),
+        ("incident_city",              "VARCHAR(128)"),
+        ("incident_date",              "VARCHAR(32)"),
+        ("policy_state",               "VARCHAR(8)"),
+        ("garage_id",                  "VARCHAR(64)"),
+        ("claimant_id",                "VARCHAR(64)"),
+        ("gnn_fraud_ring_score",       "FLOAT"),
+        ("gnn_ring_risk",              "VARCHAR(32)"),
+        ("gnn_ring_hub",               "VARCHAR(64)"),
+        ("cnn_fraud_score",            "FLOAT"),
+        ("composite_score",            "FLOAT"),
+        ("shap_summary",               "TEXT"),
+        ("gradcam_focus",              "VARCHAR(128)"),
+        ("xai_insights",               "TEXT"),
+        ("incident_description",       "TEXT"),
+        ("fnol_score",                 "FLOAT"),
+        ("fnol_linguistic_flags",      "TEXT"),
+        ("contradiction_flags",        "TEXT"),
+        ("evidence_sha256",            "VARCHAR(64)"),
+        ("photo_hashes_sha256",        "TEXT"),
+        ("chain_of_custody_timestamp", "VARCHAR(64)"),
+        ("siu_brief",                  "TEXT"),
+        ("tampering_flags",            "TEXT"),
+        ("bill_padding_summary",       "TEXT"),
     ]
     with engine.connect() as conn:
         for col_name, col_type in new_cols:

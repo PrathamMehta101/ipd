@@ -1,0 +1,28 @@
+REPAIR ESTIMATE — RING B (G-002)
+================================================================================
+Facility:   Midwest Auto Repair Hub (G-002) — Full Collision Services
+Address:    2250 West Lake Shore Dr, Chicago IL 60614
+Date:       2015-02-20
+Claimant:   CLM-B1 | Policy: POL-002-IL
+Vehicle:    2020 Truck — Total Loss Multi-vehicle Collision
+--------------------------------------------------------------------------------
+NOTE: This estimate corresponds to Fraud Ring B (garage G-002).
+      Umbrella policy holder with $6M limit — high-value target.
+--------------------------------------------------------------------------------
+
+LINE ITEM DESCRIPTION                          HRS     RATE ($)    PARTS ($)   TOTAL ($)
+-----------------------------------------------------------------------------------------
+1.  R&I Front Bumper Cover                     7.0     $125.00      $820.00   $1,695.00
+2.  Hood Full Assembly Replacement             7.5     $120.00    $1,480.00   $2,380.00
+3.  Radiator Core Support & Condenser          8.0     $120.00    $1,100.00   $2,060.00
+4.  Left Headlamp Module LED OEM               2.5     $120.00      $960.00   $1,260.00
+5.  Windshield Full Replacement Premium        4.0     $120.00      $720.00   $1,200.00
+6.  Structural Frame Rail Replacement         14.0     $130.00    $2,800.00   $4,620.00
+7.  Clean & Overhaul Fuel System               3.0     $120.00      $480.00     $840.00
+
+-----------------------------------------------------------------------------------------
+SUBTOTAL LABOR & PARTS:                                                       $14,055.00
+TOTAL LOSS ADMIN FEE:                                                            $650.00
+HAZMAT & FLUID DISPOSAL:                                                         $310.00
+-----------------------------------------------------------------------------------------
+TOTAL ESTIMATE:                                                               $15,015.00

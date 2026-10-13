@@ -2,56 +2,42 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
-const RISK_META = {
-  LOW:      { color: '#10b981', bg: 'rgba(16,185,129,0.12)',  label: 'Low',      dot: '🟢' },
-  MEDIUM:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  label: 'Medium',   dot: '🟡' },
-  HIGH:     { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',    label: 'High',     dot: '🔴' },
-  CRITICAL: { color: '#dc2626', bg: 'rgba(220,38,38,0.18)',    label: 'Critical', dot: '🚨' },
-};
-
-function StatCard({ label, value, sub, color }) {
-  return (
-    <div className="stat-card" style={{ '--stat-color': color }}>
-      <div className="stat-value" style={{ color }}>{value}</div>
-      <div className="stat-label">{label}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </div>
-  );
-}
-
-function RiskPill({ level }) {
-  const m = RISK_META[level] || RISK_META.LOW;
-  return (
-    <span className="risk-pill" style={{ color: m.color, background: m.bg }}>
-      {m.dot} {m.label}
-    </span>
-  );
+function riskBadge(level) {
+  const map = {
+    CRITICAL: 'badge-red',
+    HIGH:     'badge-red',
+    MEDIUM:   'badge-dim',
+    LOW:      'badge-green',
+  };
+  return map[level] || 'badge-dim';
 }
 
 function ScoreBar({ score }) {
-  const color = score >= 85 ? '#dc2626' : score >= 65 ? '#ef4444' : score >= 30 ? '#f59e0b' : '#10b981';
+  const color = score >= 75 ? '#f87171' : score >= 45 ? '#93c5fd' : '#6ee7b7';
   return (
-    <div className="score-bar-wrap">
-      <div className="score-bar-track">
-        <div className="score-bar-fill" style={{ width: `${score}%`, background: color, boxShadow: `0 0 6px ${color}88` }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.5s' }} />
       </div>
-      <span className="score-bar-num" style={{ color }}>{score}</span>
+      <span style={{ fontFamily: 'var(--mono)', fontSize: '0.68rem', color, minWidth: 28, textAlign: 'right' }}>
+        {score}
+      </span>
     </div>
   );
 }
 
 export default function ClaimsHistory() {
-  const [claims, setClaims]     = useState([]);
-  const [stats, setStats]       = useState(null);
-  const [total, setTotal]       = useState(0);
-  const [loading, setLoading]   = useState(false);
-  const [page, setPage]         = useState(0);
+  const [claims, setClaims]         = useState([]);
+  const [stats, setStats]           = useState(null);
+  const [total, setTotal]           = useState(0);
+  const [loading, setLoading]       = useState(false);
+  const [page, setPage]             = useState(0);
   const [filterRisk, setFilterRisk] = useState('');
   const [filterClass, setFilterClass] = useState('');
+  const [expanded, setExpanded]     = useState(null);
   const [deletingId, setDeletingId] = useState(null);
-  const [expanded, setExpanded] = useState(null);  // expanded row ID
 
-  const LIMIT = 10;
+  const LIMIT = 12;
 
   const fetchStats = useCallback(async () => {
     try {
@@ -64,16 +50,14 @@ export default function ClaimsHistory() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        skip:  page * LIMIT,
-        limit: LIMIT,
+        skip: page * LIMIT, limit: LIMIT,
         ...(filterRisk  ? { risk: filterRisk }             : {}),
         ...(filterClass ? { predicted_class: filterClass } : {}),
       });
       const res = await fetch(`${API_BASE}/api/claims?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setClaims(data.claims);
-        setTotal(data.total);
+        setClaims(data.claims); setTotal(data.total);
       }
     } catch (_) {}
     setLoading(false);
@@ -82,11 +66,11 @@ export default function ClaimsHistory() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async id => {
     setDeletingId(id);
     try {
       await fetch(`${API_BASE}/api/claims/${id}`, { method: 'DELETE' });
-      setClaims(prev => prev.filter(c => c.id !== id));
+      setClaims(p => p.filter(c => c.id !== id));
       fetchStats();
     } catch (_) {}
     setDeletingId(null);
@@ -95,180 +79,179 @@ export default function ClaimsHistory() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <section className="history-section">
-      {/* Header */}
-      <div className="history-header">
-        <div>
-          <span className="history-badge">SQLite Database</span>
-          <h2 className="history-title">Claims Intelligence Store</h2>
-          <p className="history-subtitle">Live record of every XGBoost prediction — persisted, filterable, and auditable.</p>
+    <div>
+      {/* Stats row */}
+      {stats && (
+        <div className="stats">
+          {[
+            { n: stats.total_claims,     l: 'Total Claims' },
+            { n: stats.fraud_count,      l: 'Fraud Detected' },
+            { n: stats.non_fraud_count,  l: 'Legitimate' },
+            { n: `${stats.avg_fraud_score}`, l: 'Avg Risk Score' },
+            { n: `${stats.risk_breakdown?.CRITICAL ?? 0} / ${stats.risk_breakdown?.HIGH ?? 0}`, l: 'Critical / High' },
+          ].map(s => (
+            <div className="stat" key={s.l}>
+              <div className="stat-n">{s.n}</div>
+              <div className="stat-l">{s.l}</div>
+            </div>
+          ))}
         </div>
-        <button className="refresh-btn" onClick={() => { fetchClaims(); fetchStats(); }} id="refresh-claims-btn">
+      )}
+
+      {/* Filters + refresh */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <select
+          style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-soft)', borderRadius: 'var(--r-sm)', color: 'var(--txt-hi)', fontFamily: 'var(--sans)', fontSize: '0.8rem', padding: '0.4rem 0.7rem', outline: 'none', appearance: 'none' }}
+          value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setPage(0); }}
+        >
+          <option value="">All Risk Levels</option>
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+
+        <select
+          style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-soft)', borderRadius: 'var(--r-sm)', color: 'var(--txt-hi)', fontFamily: 'var(--sans)', fontSize: '0.8rem', padding: '0.4rem 0.7rem', outline: 'none', appearance: 'none' }}
+          value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(0); }}
+        >
+          <option value="">All Verdicts</option>
+          <option value="Fraud">Fraud</option>
+          <option value="Non-Fraud">Legitimate</option>
+        </select>
+
+        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--txt-lo)', marginLeft: 'auto' }}>
+          {total} record{total !== 1 ? 's' : ''}
+        </span>
+
+        <button className="btn btn-ghost btn-sm" onClick={() => { fetchClaims(); fetchStats(); }}>
           ↻ Refresh
         </button>
       </div>
 
-      {/* Stats Row */}
-      {stats && (
-        <div className="stats-row">
-          <StatCard label="Total Claims"     value={stats.total_claims}     color="#60a5fa" />
-          <StatCard label="Fraud Detected"   value={stats.fraud_count}      sub={`${stats.fraud_rate}% rate`} color="#ef4444" />
-          <StatCard label="Non-Fraud"        value={stats.non_fraud_count}  color="#10b981" />
-          <StatCard label="Avg Fraud Score"  value={`${stats.avg_fraud_score}`} sub="out of 100" color="#f59e0b" />
-          <StatCard label="Critical / High"  value={`${stats.risk_breakdown.CRITICAL} / ${stats.risk_breakdown.HIGH}`} color="#dc2626" />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="history-filters">
-        <select
-          className="filter-select" id="filter-risk"
-          value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setPage(0); }}
-        >
-          <option value="">All Risk Levels</option>
-          <option value="LOW">🟢 Low</option>
-          <option value="MEDIUM">🟡 Medium</option>
-          <option value="HIGH">🔴 High</option>
-          <option value="CRITICAL">🚨 Critical</option>
-        </select>
-
-        <select
-          className="filter-select" id="filter-class"
-          value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(0); }}
-        >
-          <option value="">All Predictions</option>
-          <option value="Fraud">🚩 Fraud</option>
-          <option value="Non-Fraud">✅ Non-Fraud</option>
-        </select>
-
-        <span className="filter-count">{total} record{total !== 1 ? 's' : ''} found</span>
-      </div>
-
       {/* Table */}
-      <div className="history-table-wrap">
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
-          <div className="history-loading">
-            <span className="spinner-ring" style={{ width: 28, height: 28, borderWidth: 3 }} />
-            <span>Loading claims...</span>
+          <div style={{ padding: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--txt-lo)', fontFamily: 'var(--mono)', fontSize: '0.78rem' }}>
+            <div style={{ width: 14, height: 14, border: '2px solid rgba(59,130,246,0.15)', borderTopColor: 'var(--blue-500)', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+            Loading…
           </div>
         ) : claims.length === 0 ? (
-          <div className="history-empty">
-            <div className="history-empty-icon">🗄️</div>
-            <div>No claims in the database yet.</div>
-            <div className="history-empty-sub">Run an XGBoost analysis above to add the first entry.</div>
+          <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--txt-lo)', fontSize: '0.82rem' }}>
+            No claims found. Run an analysis to populate the database.
           </div>
         ) : (
-          <table className="history-table">
-            <thead>
-              <tr>
-                <th>#ID</th>
-                <th>Date</th>
-                <th>Incident Type</th>
-                <th>Severity</th>
-                <th>Claim ($)</th>
-                <th>Fraud Score</th>
-                <th>Verdict</th>
-                <th>Risk</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {claims.map(c => (
-                <React.Fragment key={c.id}>
-                  <tr
-                    className={`history-row ${expanded === c.id ? 'history-row--expanded' : ''}`}
-                    onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td className="td-id">#{c.id}</td>
-                    <td className="td-date">{new Date(c.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td className="td-type">{c.incident_type}</td>
-                    <td>{c.incident_severity}</td>
-                    <td className="td-amount">${c.total_claim_amount.toLocaleString()}</td>
-                    <td><ScoreBar score={c.fraud_score} /></td>
-                    <td>
-                      <span className={`verdict-pill ${c.predicted_class === 'Fraud' ? 'verdict-fraud' : 'verdict-safe'}`}>
-                        {c.predicted_class === 'Fraud' ? '🚩 Fraud' : '✅ Safe'}
-                      </span>
-                    </td>
-                    <td><RiskPill level={c.risk_level} /></td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <button
-                        className="delete-btn"
-                        title="Delete entry"
-                        onClick={() => handleDelete(c.id)}
-                        disabled={deletingId === c.id}
-                        id={`delete-claim-${c.id}`}
-                      >
-                        {deletingId === c.id ? '…' : '🗑'}
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Expanded detail row */}
-                  {expanded === c.id && (
-                    <tr className="detail-row">
-                      <td colSpan={9}>
-                        <div className="detail-grid">
-                          <div className="detail-item">
-                            <span className="detail-label">Garage ID</span>
-                            <span className="detail-val" style={{ color: '#f59e0b' }}>{c.garage_id || '—'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Claimant ID</span>
-                            <span className="detail-val" style={{ color: '#06b6d4' }}>{c.claimant_id || '—'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Incident City</span>
-                            <span className="detail-val" style={{ color: '#10b981' }}>{c.incident_city || '—'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">GNN Ring Score</span>
-                            <span className="detail-val" style={{ color: (c.gnn_fraud_ring_score || 0) >= 50 ? '#ef4444' : '#10b981', fontWeight: 700 }}>
-                              {Math.round(c.gnn_fraud_ring_score || 0)}%
-                            </span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Composite Score</span>
-                            <span className="detail-val" style={{ color: (c.composite_score || c.fraud_score) >= 50 ? '#ef4444' : '#10b981', fontWeight: 700 }}>
-                              {Math.round(c.composite_score || c.fraud_score)}%
-                            </span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Vehicle Claim</span>
-                            <span className="detail-val">${c.vehicle_claim.toLocaleString()}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Annual Premium</span>
-                            <span className="detail-val">${c.policy_annual_premium.toLocaleString()}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Hobby</span>
-                            <span className="detail-val">{c.insured_hobbies}</span>
-                          </div>
-                          <div className="detail-item detail-item--full">
-                            <span className="detail-label">Recommendation</span>
-                            <span className="detail-val">{c.recommendation_label}</span>
-                          </div>
-                        </div>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Date</th><th>Type</th><th>Severity</th>
+                  <th>Claim $</th><th>Fraud Score</th><th>Verdict</th><th>Risk</th><th />
+                </tr>
+              </thead>
+              <tbody>
+                {claims.map(c => (
+                  <React.Fragment key={c.id}>
+                    <tr
+                      onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td className="tbl-id">#{c.id}</td>
+                      <td style={{ color: 'var(--txt-lo)', fontFamily: 'var(--mono)', fontSize: '0.68rem' }}>
+                        {new Date(c.created_at).toLocaleDateString('en-IN', { dateStyle: 'short' })}
+                      </td>
+                      <td>{c.incident_type}</td>
+                      <td>{c.incident_severity}</td>
+                      <td style={{ fontFamily: 'var(--mono)' }}>${(c.total_claim_amount || 0).toLocaleString()}</td>
+                      <td style={{ minWidth: 120 }}><ScoreBar score={Math.round(c.fraud_score)} /></td>
+                      <td>
+                        <span className={`badge ${c.predicted_class === 'Fraud' ? 'badge-red' : 'badge-green'}`}>
+                          {c.predicted_class === 'Fraud' ? 'FRAUD' : 'OK'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${riskBadge(c.risk_level)}`}>{c.risk_level}</span>
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '0.2rem 0.5rem', color: 'var(--txt-lo)' }}
+                          onClick={() => handleDelete(c.id)}
+                          disabled={deletingId === c.id}
+                        >
+                          {deletingId === c.id ? '…' : '×'}
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+
+                    {expanded === c.id && (
+                      <tr>
+                        <td colSpan={9} style={{ padding: 0 }}>
+                          <div style={{
+                            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                            gap: '0', borderTop: '1px solid var(--border-dim)',
+                            background: 'rgba(255,255,255,0.01)',
+                          }}>
+                            {[
+                              ['Garage ID', c.garage_id || '—'],
+                              ['Claimant ID', c.claimant_id || '—'],
+                              ['City', c.incident_city || '—'],
+                              ['GNN Ring', `${Math.round(c.gnn_fraud_ring_score || 0)}%`],
+                              ['Composite', `${Math.round(c.composite_score || c.fraud_score)}%`],
+                              ['Premium', `$${(c.policy_annual_premium || 0).toLocaleString()}`],
+                              ['Hobby', c.insured_hobbies || '—'],
+                              ['Recommendation', c.recommendation_label || '—'],
+                            ].map(([lbl, val]) => (
+                              <div key={lbl} style={{ padding: '0.65rem 0.9rem', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)' }}>
+                                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.58rem', color: 'var(--txt-lo)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{lbl}</div>
+                                <div style={{ fontSize: '0.76rem', color: 'var(--txt-hi)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Layer 7: Legal PDF Export & Chain of Custody Seal */}
+                          <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.65rem 1rem', background: 'rgba(15,23,42,0.4)',
+                            borderTop: '1px solid var(--border-dim)', flexWrap: 'wrap', gap: '0.5rem'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ color: 'var(--blue-400)', fontSize: '0.75rem' }}>🔒</span>
+                              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--txt-mid)' }}>
+                                Evidence Digest: {c.evidence_sha256 ? `${c.evidence_sha256.slice(0, 24)}…` : 'Certified Chain of Custody'}
+                              </span>
+                            </div>
+                            <a
+                              href={`${API_BASE}/api/claims/${c.id}/export-pdf`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline btn-sm"
+                              style={{ fontSize: '0.7rem', textDecoration: 'none' }}
+                            >
+                              📄 Download Legal PDF Evidence Package
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination">
-          <button className="page-btn" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span className="page-info">Page {page + 1} of {totalPages}</span>
-          <button className="page-btn" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '1.25rem' }}>
+          <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--txt-mid)' }}>
+            {page + 1} / {totalPages}
+          </span>
+          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}
-    </section>
+    </div>
   );
 }

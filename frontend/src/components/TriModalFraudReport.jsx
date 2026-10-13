@@ -1,4 +1,6 @@
 import React from 'react';
+import ExplainableAIDossier from './ExplainableAIDossier';
+import FNOLDiscrepancyMatrix from './FNOLDiscrepancyMatrix';
 
 const RISK_THEMES = {
   CRITICAL: {
@@ -313,6 +315,23 @@ export default function TriModalFraudReport({ data, onSwitchToGraph }) {
             </div>
           </div>
         </div>
+
+        {/* ── Layer 1: Explainable AI (XAI) & Attribution Dossier ── */}
+        {data.explainability && (
+          <ExplainableAIDossier
+            explainability={data.explainability}
+            cnnData={cnn}
+            rawClaim={data}
+          />
+        )}
+
+        {/* ── Layer 4: Multimodal NLP & FNOL Contradiction Matrix ── */}
+        {data.fnol && data.fnol.analyzed && (
+          <FNOLDiscrepancyMatrix
+            fnolData={data.fnol}
+            rawClaim={data}
+          />
+        )}
 
         {/* ── Network & Synergy Flags ── */}
         {gnn?.network_flags && gnn.network_flags.length > 0 && (
