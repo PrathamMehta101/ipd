@@ -1,5 +1,5 @@
 """
-AutoShield AI — Layer 7: SIU Investigator Tools & Operational Workflow Service
+IntelliClaim — Layer 7: SIU Investigator Tools & Operational Workflow Service
 Features:
 1. Automated AI Case Dossier & Questioning Guide (LLM / SIU Briefing)
 2. Immutable Audit Trail & SHA-256 Chain-of-Custody Hashes
@@ -620,7 +620,7 @@ def build_legal_pdf_report(
     # ── 8. Legal Declaration & Official Investigator Sign-Off ──
     legal_text = (
         "<b>CERTIFICATE OF AUTHENTICITY AND EVIDENCE INTEGRITY (FRE 902(13)/(14)):</b><br/>"
-        "I hereby certify under penalty of perjury that this investigation dossier was generated through AutoShield AI's "
+        "I hereby certify under penalty of perjury that this investigation dossier was generated through IntelliClaim's "
         "forensic multi-modal pipeline. The underlying digital evidence, image hashes, and tabular inputs have been cryptographically "
         "hashed via SHA-256 and preserved without alteration in an unbroken chain of custody for judicial submission."
     )

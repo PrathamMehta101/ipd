@@ -182,7 +182,7 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <span>AutoShield AI — ResNet50 · XGBoost · GNN · FNOL NLP</span>
+        <span>IntelliClaim — ResNet50 · XGBoost · GNN · FNOL NLP</span>
         <span style={{ color: 'var(--blue-900)' }}>
           {new Date().getFullYear()}
         </span>

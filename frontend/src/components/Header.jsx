@@ -14,7 +14,7 @@ export default function Header({ status, activeTab, setActiveTab }) {
           <i className="fa-solid fa-shield-halved" />
         </div>
         <span className="nav-title">
-          AutoShield <em>AI</em>
+          IntelliClaim
         </span>
       </div>
 

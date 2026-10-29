@@ -2114,7 +2114,7 @@ def export_claim_pdf(claim_id: int, db: Session = Depends(get_db)):
         )
 
     pdf_bytes = build_legal_pdf_report(case_dict, siu_brief_dict, evidence_hashes)
-    filename = f"AutoShield_SIU_Dossier_Case_{claim_id}.pdf"
+    filename = f"IntelliClaim_SIU_Dossier_Case_{claim_id}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -2157,7 +2157,7 @@ def export_custom_pdf(payload: CustomPdfRequest):
 
     pdf_bytes = build_legal_pdf_report(case, brief, hashes)
     cid = case.get("id") or "LIVE"
-    filename = f"AutoShield_SIU_Dossier_Case_{cid}.pdf"
+    filename = f"IntelliClaim_SIU_Dossier_Case_{cid}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -1022,7 +1022,7 @@ export default function ResultsSlideshow({ data, files }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `AutoShield_SIU_Dossier_Case_${data.id || 'Live'}.pdf`;
+      a.download = `IntelliClaim_SIU_Dossier_Case_${data.id || 'Live'}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

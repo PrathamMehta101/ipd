@@ -1,5 +1,5 @@
 """
-AutoShield AI — Layer 2: Deep Image & Document Tampering Forensics
+IntelliClaim — Layer 2: Deep Image & Document Tampering Forensics
 Components:
 1. Error Level Analysis (ELA) & Compression Difference Mapping
 2. EXIF GPS & Date Geofencing
