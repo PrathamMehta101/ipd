@@ -17,8 +17,9 @@ export default function ImageResultsGrid({ imageResults, files }) {
       <div className="image-results-grid">
         {imageResults.map((result, idx) => {
           const fileObj = files[idx] || files[0];
-          const isFraud = result.prediction.predicted_class === 'Fraud';
-          const score = result.prediction.fraud_score;
+          const rawScore = result.prediction?.fraud_score ?? result.prediction?.fraud_probability ?? 0;
+          const score = (Number(rawScore) > 0 && Number(rawScore) <= 1.0) ? Number(rawScore) * 100 : Number(rawScore || 0);
+          const isFraud = result.prediction?.predicted_class === 'Fraud' || score >= 50;
           const badgeClass = score >= 65 ? 'risk-badge HIGH' : (score >= 30 ? 'risk-badge MEDIUM' : 'risk-badge LOW');
           const previewSrc = fileObj ? URL.createObjectURL(fileObj) : '';
           const gradcam = result.gradcam;

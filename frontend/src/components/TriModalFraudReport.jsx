@@ -55,7 +55,10 @@ export default function TriModalFraudReport({ data, onSwitchToGraph }) {
 
   const xgbScore = xgboost?.fraud_score ?? 0;
   const gnnScore = gnn?.fraud_ring_score ?? 0;
-  const cnnScore = cnn?.fraud_score !== null && cnn?.fraud_score !== undefined ? cnn.fraud_score : null;
+  const rawCnnScore = cnn?.fraud_score !== null && cnn?.fraud_score !== undefined ? cnn.fraud_score : (cnn?.fraud_probability ?? null);
+  const cnnScore = rawCnnScore !== null && rawCnnScore !== undefined
+    ? (Number(rawCnnScore) > 0 && Number(rawCnnScore) <= 1.0 ? Number(rawCnnScore) * 100 : Number(rawCnnScore))
+    : null;
 
   const handlePrint = () => {
     window.print();

@@ -1136,6 +1136,8 @@ def predict_tabular_fraud(payload: TabularClaimInput, db: Session = Depends(get_
 
     # 4. Composite Synthesis
     cnn_score = payload.cnn_fraud_score
+    if cnn_score is not None and 0.0 < cnn_score <= 1.0:
+        cnn_score = cnn_score * 100.0
     if fnol_result["analyzed"]:
         f_score = fnol_result["fnol_score"]
         if cnn_score is not None:
@@ -1599,7 +1601,13 @@ async def analyze_claim_images(files: List[UploadFile] = File(...)):
         results.append(analysis)
         
     # Calculate Aggregated Claim Fraud Score
-    scores = [r["prediction"]["fraud_score"] for r in results]
+    scores = []
+    for r in results:
+        sc = float(r.get("prediction", {}).get("fraud_score", 0.0))
+        if 0.0 < sc <= 1.0:
+            sc = sc * 100.0
+            r["prediction"]["fraud_score"] = round(sc, 2)
+        scores.append(sc)
     avg_score = sum(scores) / len(scores) if scores else 0.0
     max_score = max(scores) if scores else 0.0
     
@@ -1706,7 +1714,13 @@ async def unified_analyze(
         }
 
     if image_results:
-        scores = [r["prediction"]["fraud_score"] for r in image_results]
+        scores = []
+        for r in image_results:
+            sc = float(r.get("prediction", {}).get("fraud_score", 0.0))
+            if 0.0 < sc <= 1.0:
+                sc = sc * 100.0
+                r["prediction"]["fraud_score"] = round(sc, 2)
+            scores.append(sc)
         avg_score = sum(scores) / len(scores) if scores else 0.0
         max_score = max(scores) if scores else 0.0
         duplicate_penalty = 25.0 if duplicate_warnings else 0.0

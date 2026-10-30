@@ -9,7 +9,9 @@ export default function DashboardResults({ results, files }) {
     results.composite?.score ??
     results.fraud_score ??
     0;
-  const score = isFinite(Number(rawScore)) ? Number(rawScore) : 0;
+  let numScore = isFinite(Number(rawScore)) ? Number(rawScore) : 0;
+  if (numScore > 0 && numScore <= 1.0) numScore = numScore * 100;
+  const score = numScore;
   const riskLevel = results.overall_risk_level ?? results.composite?.risk_level ?? results.risk_level ?? 'LOW';
   const recLabel = results.recommendation_label ?? results.composite?.recommendation_label ?? 'Analysis completed.';
   const warnings = results.duplicate_warnings ?? results.cnn?.duplicate_warnings ?? [];
@@ -34,7 +36,11 @@ export default function DashboardResults({ results, files }) {
   }
 
   const maxScore = imageResults && imageResults.length > 0
-    ? Math.max(...imageResults.map(r => { const v = Number(r.prediction?.fraud_score); return isFinite(v) ? v : 0; }))
+    ? Math.max(...imageResults.map(r => {
+        let v = Number(r.prediction?.fraud_score ?? r.prediction?.fraud_probability ?? 0);
+        if (v > 0 && v <= 1.0) v = v * 100;
+        return isFinite(v) ? v : 0;
+      }))
     : 0;
   const totalTimeMs = imageResults && imageResults.length > 0
     ? imageResults.reduce((acc, curr) => { const v = Number(curr.processing_time_ms); return acc + (isFinite(v) ? v : 0); }, 0)

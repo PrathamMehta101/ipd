@@ -36,7 +36,10 @@ function SlideVerdict({ data, onJumpToSIU, onDownloadPdf, isDownloading }) {
 
   const xgb = data.xgboost?.fraud_score ?? 0;
   const gnn = data.gnn?.fraud_ring_score ?? 0;
-  const cnn = data.cnn?.fraud_score ?? null;
+  const rawCnn = data.cnn?.fraud_score ?? data.cnn?.fraud_probability ?? null;
+  const cnn = rawCnn !== null && rawCnn !== undefined
+    ? (Number(rawCnn) > 0 && Number(rawCnn) <= 1.0 ? Number(rawCnn) * 100 : Number(rawCnn))
+    : null;
   const fnol = data.fnol?.fnol_score ?? null;
   const sha = data.evidence_sha256 || data.siu_brief?.evidence_sha256;
 
@@ -106,7 +109,7 @@ function SlideVerdict({ data, onJumpToSIU, onDownloadPdf, isDownloading }) {
           ...(cnn  !== null ? [{
             lbl: 'CNN Visual',
             score: cnn,
-            sub: cnn >= 50 ? 'Visual Anomaly' : (cnn < 1 ? 'Verified Authentic Photo' : 'Low Visual Risk')
+            sub: cnn >= 50 ? 'Visual Anomaly' : 'Low Visual Risk'
           }]  : []),
           ...(fnol !== null ? [{
             lbl: 'FNOL NLP',
@@ -128,7 +131,7 @@ function SlideVerdict({ data, onJumpToSIU, onDownloadPdf, isDownloading }) {
           <div className="pillar" key={p.lbl}>
             <div className="pillar-lbl">{p.lbl}</div>
             <div className="pillar-score" style={{ color: pillarColor(p.score) }}>
-              {p.score > 0 && p.score < 1 ? `${p.score.toFixed(1)}%` : `${Math.round(p.score)}%`}
+              {`${Math.round(p.score)}%`}
             </div>
             <div className="pillar-track">
               <div
@@ -792,8 +795,11 @@ function SlideImages({ data, files }) {
       <div className="img-grid">
         {imgs.map((img, i) => {
           const file = files?.[i];
-          const score = img.prediction?.fraud_score ?? 0;
-          const authConf = ((img.prediction?.non_fraud_probability ?? (1 - (img.prediction?.fraud_probability || 0))) * 100).toFixed(1);
+          const rawScore = img.prediction?.fraud_score ?? img.prediction?.fraud_probability ?? 0;
+          const score = (Number(rawScore) > 0 && Number(rawScore) <= 1.0) ? Number(rawScore) * 100 : Number(rawScore);
+          const rawNonFraud = img.prediction?.non_fraud_probability ?? (1 - (score / 100));
+          const nonFraudVal = (Number(rawNonFraud) > 0 && Number(rawNonFraud) <= 1.0) ? Number(rawNonFraud) * 100 : Number(rawNonFraud);
+          const authConf = nonFraudVal.toFixed(1);
           const isFraud = score >= 50;
 
           return (
@@ -808,7 +814,7 @@ function SlideImages({ data, files }) {
                 <div className="img-card-name">{img.filename}</div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: isFraud ? '#f87171' : '#6ee7b7' }}>
-                    {score > 0 && score < 1 ? `${score.toFixed(2)}%` : `${Math.round(score)}%`} fraud risk
+                    {score.toFixed(1)}% fraud risk
                   </span>
                   <span className={`badge ${isFraud ? 'badge-red' : 'badge-green'}`}>
                     {isFraud ? 'FRAUD SUSPECT' : 'VERIFIED AUTHENTIC'}
@@ -816,7 +822,7 @@ function SlideImages({ data, files }) {
                 </div>
 
                 <div style={{ fontSize: '0.68rem', fontFamily: 'var(--mono)', color: 'var(--txt-mid)', marginBottom: '0.25rem' }}>
-                  ResNet50 Confidence: <strong style={{ color: '#6ee7b7' }}>{authConf}% Authentic</strong>
+                  ResNet50 Confidence: <strong style={{ color: isFraud ? '#f87171' : '#6ee7b7' }}>{authConf}% Authentic</strong>
                 </div>
 
                 {img.gradcam?.focus_region && (
